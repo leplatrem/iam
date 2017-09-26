@@ -1,7 +1,6 @@
 package warden
 
 import (
-	"encoding/json"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -12,8 +11,6 @@ import (
 	manager "github.com/ory/ladon/manager/memory"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
-
-	"github.com/leplatrem/iam/utilities"
 )
 
 // ContextKey is the Gin context key to obtain the *ladon.Ladon instance.
@@ -29,26 +26,14 @@ func LadonMiddleware(warden *ladon.Ladon) gin.HandlerFunc {
 
 // LoadPolicies reads policies from the YAML file.
 func LoadPolicies(warden *ladon.Ladon, filename string) error {
-	yamlFile, err := ioutil.ReadFile(filename)
+	yamlData, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return err
 	}
 
 	var policies []*ladon.DefaultPolicy
 
-	// Ladon does not support un/marshaling YAML.
-	// XXX: I chose to convert to JSON first :|
-	// https://github.com/ory/ladon/issues/83
-	var generic interface{}
-	if err := yaml.Unmarshal(yamlFile, &generic); err != nil {
-		return err
-	}
-	asJSON := utilities.Yaml2JSON(generic)
-	jsonData, err := json.Marshal(asJSON)
-	if err != nil {
-		return err
-	}
-	if err := json.Unmarshal(jsonData, &policies); err != nil {
+	if err := yaml.Unmarshal(yamlData, &policies); err != nil {
 		return err
 	}
 
