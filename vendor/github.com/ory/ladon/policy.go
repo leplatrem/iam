@@ -53,8 +53,7 @@ type DefaultPolicy struct {
 	Conditions  Conditions `json:"conditions" gorethink:"conditions"`
 }
 
-// UnmarshalJSON overwrite own policy with values of the given in policy in JSON format
-func (p *DefaultPolicy) UnmarshalJSON(data []byte) error {
+func (p *DefaultPolicy) unmarshalGeneric(unmarshal func(interface{}) error) error {
 	var pol = struct {
 		ID          string     `json:"id" gorethink:"id"`
 		Description string     `json:"description" gorethink:"description"`
@@ -67,7 +66,7 @@ func (p *DefaultPolicy) UnmarshalJSON(data []byte) error {
 		Conditions: Conditions{},
 	}
 
-	if err := json.Unmarshal(data, &pol); err != nil {
+	if err := unmarshal(&pol); err != nil {
 		return errors.WithStack(err)
 	}
 
@@ -81,6 +80,18 @@ func (p *DefaultPolicy) UnmarshalJSON(data []byte) error {
 		Conditions:  pol.Conditions,
 	}
 	return nil
+}
+
+// UnmarshalJSON overwrite own policy with values of the given in policy in JSON format
+func (p *DefaultPolicy) UnmarshalJSON(data []byte) error {
+	return p.unmarshalGeneric(func(out interface{}) error {
+		return json.Unmarshal(data, out)
+	})
+}
+
+// UnmarshalYAML overwrite own policy with values of the given in policy in YAML format
+func (p *DefaultPolicy) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	return p.unmarshalGeneric(unmarshal)
 }
 
 // GetID returns the policies id.
