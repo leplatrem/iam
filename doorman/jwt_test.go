@@ -58,16 +58,22 @@ func (v *TestValidator) ExtractClaims(request *http.Request) (*jwt.Claims, error
 }
 
 func TestJWTMiddleware(t *testing.T) {
-	claims := &jwt.Claims{}
 	v := &TestValidator{}
 	v.On("Initialize").Return(nil)
-	v.On("ExtractClaims").Return(claims, nil)
 	handler := VerifyJWTMiddleware(v)
+
+	// Initialize() is called on server startup.
 	v.AssertCalled(t, "Initialize")
 
+	// Extract claims is ran on every request.
+	claims := &jwt.Claims{
+		Subject: "ldap|user",
+	}
+	v.On("ExtractClaims").Return(claims, nil)
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	c.Request, _ = http.NewRequest("GET", "/get", nil)
+
 	handler(c)
 
-	v.AssertCalled(t, "ExtractClaims")
+	v.AssertCalled(t, "ExtractClaims", c.Request)
 }
