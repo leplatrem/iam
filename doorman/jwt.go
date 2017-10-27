@@ -11,46 +11,49 @@ import (
 	jwt "gopkg.in/square/go-jose.v2/jwt"
 )
 
-func newJWTValidator(jwtIssuer string) *auth0.JWTValidator {
-	jwksURI := fmt.Sprintf("%s.well-known/jwks.json", jwtIssuer)
+type JWTValidator interface {
+	Initialize() error
+	ExtractClaims(*http.Request) (*jwt.Claims, error)
+}
+
+type Auth0Validator struct {
+	Issuer    string
+	validator *auth0.JWTValidator
+}
+
+func (v *Auth0Validator) Initialize() error {
+	jwksURI := fmt.Sprintf("%s.well-known/jwks.json", v.Issuer)
 	log.Infof("JWT keys: %s", jwksURI)
 
 	// Will check audience only when request comes in, leave empty for now.
 	audience := []string{}
 
 	client := auth0.NewJWKClient(auth0.JWKClientOptions{URI: jwksURI})
-	config := auth0.NewConfiguration(client, audience, jwtIssuer, jose.RS256)
-	validator := auth0.NewValidator(config)
-
-	return validator
+	config := auth0.NewConfiguration(client, audience, v.Issuer, jose.RS256)
+	v.validator = auth0.NewValidator(config)
+	return nil
 }
 
-func verifyJWT(validator *auth0.JWTValidator, request *http.Request) (*jwt.Claims, error) {
-	token, err := validator.ValidateRequest(request)
-	if err != nil {
-		return nil, err
-	}
-
+func (v *Auth0Validator) ExtractClaims(request *http.Request) (*jwt.Claims, error) {
+	token, err := v.validator.ValidateRequest(request)
 	claims := jwt.Claims{}
-	err = validator.Claims(request, token, &claims)
+	err = v.validator.Claims(request, token, &claims)
 	if err != nil {
 		return nil, err
 	}
-
 	// XXX: verify API ID / audience here.
 	//if !claims.Audience.Contains(v) {
 	// 	return ErrInvalidAudience
 	// }
-
 	return &claims, nil
 }
 
 // VerifyJWTMiddleware makes sure a valid JWT is provided.
-func VerifyJWTMiddleware(jwtIssuer string) gin.HandlerFunc {
-	validator := newJWTValidator(jwtIssuer)
+func VerifyJWTMiddleware(validator JWTValidator) gin.HandlerFunc {
+	validator.Initialize()
 
 	return func(c *gin.Context) {
-		claims, err := verifyJWT(validator, c.Request)
+		claims, err := validator.ExtractClaims(c.Request)
 
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
