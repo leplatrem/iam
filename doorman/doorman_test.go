@@ -85,6 +85,10 @@ func TestLoadPolicies(t *testing.T) {
 	`))
 	assert.NotNil(t, err)
 
+	// Empty file
+	err = loadTempFile([]byte(``))
+	assert.Nil(t, err)
+
 	// Duplicated ID
 	err = loadTempFile([]byte(`
 	-
