@@ -54,7 +54,7 @@ func (v *TestValidator) Initialize() error {
 }
 func (v *TestValidator) ExtractClaims(request *http.Request) (*jwt.Claims, error) {
 	args := v.Called(request)
-	return args.Get(0).(*jwt.Claims), args.Error(0)
+	return args.Get(0).(*jwt.Claims), args.Error(1)
 }
 
 func TestJWTMiddleware(t *testing.T) {
@@ -69,11 +69,16 @@ func TestJWTMiddleware(t *testing.T) {
 	claims := &jwt.Claims{
 		Subject: "ldap|user",
 	}
-	v.On("ExtractClaims").Return(claims, nil)
+	v.On("ExtractClaims", mock.Anything).Return(claims, nil)
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	c.Request, _ = http.NewRequest("GET", "/get", nil)
 
 	handler(c)
 
 	v.AssertCalled(t, "ExtractClaims", c.Request)
+
+	// JWT claims are set in context.
+	payloadJWT, ok := c.Get("JWT")
+	require.True(t, ok)
+	assert.Equal(t, "ldap|user", payloadJWT.(*jwt.Claims).Subject)
 }

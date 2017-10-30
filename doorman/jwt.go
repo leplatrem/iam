@@ -11,16 +11,19 @@ import (
 	jwt "gopkg.in/square/go-jose.v2/jwt"
 )
 
+// JWTValidator is the interface in charge of extracting JWT claims from request.
 type JWTValidator interface {
 	Initialize() error
 	ExtractClaims(*http.Request) (*jwt.Claims, error)
 }
 
+// Auth0Validator is the implementation of JWTValidator for Auth0.
 type Auth0Validator struct {
 	Issuer    string
 	validator *auth0.JWTValidator
 }
 
+// Initialize will fetch Auth0 public keys and instantiate a validator.
 func (v *Auth0Validator) Initialize() error {
 	jwksURI := fmt.Sprintf("%s.well-known/jwks.json", v.Issuer)
 	log.Infof("JWT keys: %s", jwksURI)
@@ -34,6 +37,7 @@ func (v *Auth0Validator) Initialize() error {
 	return nil
 }
 
+// ExtractClaims validates the token from request, and returns the JWT claims.
 func (v *Auth0Validator) ExtractClaims(request *http.Request) (*jwt.Claims, error) {
 	token, err := v.validator.ValidateRequest(request)
 	claims := jwt.Claims{}
