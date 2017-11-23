@@ -1,6 +1,8 @@
 package utilities
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -75,4 +77,28 @@ func versionHandler(c *gin.Context) {
 		versionFile = filepath.Join(here, "version.json")
 	}
 	c.File(versionFile)
+}
+
+func GetVersion() string {
+	versionFilename := os.Getenv("VERSION_FILE")
+	if versionFilename == "" {
+		// Look in current working directory.
+		here, _ := os.Getwd()
+		versionFilename = filepath.Join(here, "version.json")
+	}
+	var info struct {
+		Version string `json:"version"`
+	}
+	versionFile, err := os.Open(versionFilename)
+	defer versionFile.Close()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "opening %s: %s", versionFilename, err.Error())
+		os.Exit(11)
+	}
+	jsonParser := json.NewDecoder(versionFile)
+	if err = jsonParser.Decode(&info); err != nil {
+		fmt.Fprintf(os.Stderr, "parsing %s: %s", versionFilename, err.Error())
+		os.Exit(12)
+	}
+	return info.Version
 }
