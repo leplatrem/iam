@@ -1,4 +1,3 @@
-GOPATH := $(HOME)/go
 GO_LINT := $(GOPATH)/bin/golint
 GO_GLIDE := $(GOPATH)/bin/glide
 GO_BINDATA := $(GOPATH)/bin/go-bindata
