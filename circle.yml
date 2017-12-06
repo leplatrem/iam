@@ -14,7 +14,7 @@ dependencies:
     - "~/docker"
 
   pre:
-    - sudo apt-get update; sudo apt-get install pigz
+    - sudo add-apt-repository -y ppa:gophers/archive; sudo apt-get update; sudo apt-get install pigz; sudo apt-get install golang-1.9-go
 
   override:
     - docker info
