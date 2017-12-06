@@ -35,7 +35,8 @@ dependencies:
         > version.json
 
     # build the actual deployment container
-    - make -e GOPATH=`pwd`/go
+    - go version
+    - make -e GOPATH=$(dirname `pwd`)/go
     - docker build --pull -t app .
 
     # Clean up any old images; save the new one.
