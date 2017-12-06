@@ -1,24 +1,32 @@
 GO_LINT := $(GOPATH)/bin/golint
 GO_GLIDE := $(GOPATH)/bin/glide
 GO_BINDATA := $(GOPATH)/bin/go-bindata
+GO_PACKAGE := $(GOPATH)/src/github.com/mozilla/doorman
 DATA_FILES := ./utilities/openapi.yaml ./utilities/contribute.yaml
 SRC := *.go ./config/*.go ./utilities/*.go ./doorman/*.go
 PACKAGES := ./ ./config/ ./utilities/ ./doorman/
 
-main: vendor utilities/bindata.go $(SRC)
+main: $(GO_PACKAGE) vendor utilities/bindata.go $(SRC)
 	CGO_ENABLED=0 go build -o main *.go
 
 clean:
 	rm -f main coverage.txt utilities/bindata.go vendor
 
-vendor: $(GO_GLIDE) glide.lock glide.yaml
-	$(GO_GLIDE) install
+$(GOPATH):
+	mkdir -p $(GOPATH)
 
-$(GO_GLIDE):
+$(GO_PACKAGE): $(GOPATH)
+	mkdir -p $(shell dirname ${GO_PACKAGE})
+	ln -sf `pwd` $(GO_PACKAGE)
+
+$(GO_GLIDE): $(GOPATH)
 	go get github.com/Masterminds/glide
 
-$(GO_BINDATA):
+$(GO_BINDATA): $(GOPATH)
 	go get github.com/jteeuwen/go-bindata/...
+
+vendor: $(GO_GLIDE) glide.lock glide.yaml
+	$(GO_GLIDE) install
 
 utilities/bindata.go: $(GO_BINDATA) $(DATA_FILES)
 	$(GO_BINDATA) -o utilities/bindata.go -pkg utilities $(DATA_FILES)

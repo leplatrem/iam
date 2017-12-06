@@ -36,8 +36,6 @@ dependencies:
 
     # build the actual deployment container
     - export GOPATH=~/go
-    - mkdir -p $GOPATH/src/github.com/mozilla
-    - ln -sf `pwd` $GOPATH/src/github.com/mozilla/$CIRCLE_PROJECT_REPONAME
     - make
     - docker build --pull -t app .
 

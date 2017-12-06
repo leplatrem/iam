@@ -1,3 +1,4 @@
+.go
 main
 utilities/bindata.go
 coverage.txt
