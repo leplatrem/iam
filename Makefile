@@ -1,5 +1,5 @@
 GO_LINT := $(GOPATH)/bin/golint
-GO_GLIDE := $(GOPATH)/bin/glide
+GO_DEP := $(GOPATH)/bin/dep
 GO_BINDATA := $(GOPATH)/bin/go-bindata
 GO_PACKAGE := $(GOPATH)/src/github.com/mozilla/doorman
 DATA_FILES := ./utilities/openapi.yaml ./utilities/contribute.yaml
@@ -19,14 +19,14 @@ $(GO_PACKAGE): $(GOPATH)
 	mkdir -p $(shell dirname ${GO_PACKAGE})
 	ln -sf `pwd` $(GO_PACKAGE)
 
-$(GO_GLIDE): $(GOPATH)
-	go get github.com/Masterminds/glide
+$(GO_DEP): $(GOPATH) $(GO_PACKAGE)
+	go get -u github.com/golang/dep/cmd/dep
 
 $(GO_BINDATA): $(GOPATH)
 	go get github.com/jteeuwen/go-bindata/...
 
-vendor: $(GO_GLIDE) glide.lock glide.yaml
-	$(GO_GLIDE) install
+vendor: $(GO_DEP) Gopkg.lock Gopkg.toml
+	$(GO_DEP) ensure
 
 utilities/bindata.go: $(GO_BINDATA) $(DATA_FILES)
 	$(GO_BINDATA) -o utilities/bindata.go -pkg utilities $(DATA_FILES)
