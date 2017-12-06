@@ -1,3 +1,4 @@
+GOPATH := $(HOME)/go
 GO_LINT := $(GOPATH)/bin/golint
 GO_GLIDE := $(GOPATH)/bin/glide
 GO_BINDATA := $(GOPATH)/bin/go-bindata
@@ -6,7 +7,7 @@ DATA_FILES := ./utilities/openapi.yaml ./utilities/contribute.yaml
 SRC := *.go ./config/*.go ./utilities/*.go ./doorman/*.go
 PACKAGES := ./ ./config/ ./utilities/ ./doorman/
 
-main: $(GO_PACKAGE) vendor utilities/bindata.go $(SRC)
+main: vendor utilities/bindata.go $(SRC) $(GO_PACKAGE)
 	CGO_ENABLED=0 go build -o main *.go
 
 clean:

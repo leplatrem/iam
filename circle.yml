@@ -35,7 +35,6 @@ dependencies:
         > version.json
 
     # build the actual deployment container
-    - export GOPATH=go
     - make
     - docker build --pull -t app .
 
