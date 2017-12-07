@@ -49,7 +49,7 @@ dependencies:
 
     # Build the container, using Circle's Docker cache. Only use 1 image per
     # day to keep the cache size down.
-    - I="image-$(date +%j).gz"; if [[ -e ~/docker/$I ]]; then echo "Loading $I"; pigz -d -c ~/docker/$I | docker load; fi
+    - I="image-$(date +%j).gz"; if [ -e "~/docker/$I" ]; then echo "Loading $I"; pigz -d -c "~/docker/$I" | docker load || rm -f "~/docker/$I"; fi
 
     # create a version.json
     - >
