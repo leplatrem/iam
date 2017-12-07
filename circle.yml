@@ -6,17 +6,42 @@
 # DOCKER_PASS
 #
 machine:
+  environment:
+
+    # make some env vars to save typing
+    # GWS should already exists on the ubuntu trusty build image
+    GWS: "$HOME/.go_workspace"
+    A: "$GWS/src/github.com/$CIRCLE_PROJECT_USERNAME"
+    B: "$A/$CIRCLE_PROJECT_REPONAME"
+
+    # Use to install Custom golang from https://golang.org/dl/
+    GODIST: "go1.9.linux-amd64.tar.gz"
+    GODIST_HASH: "d70eadefce8e160638a9a6db97f7192d8463069ab33138893ad3bf31b0650a79"
+
   services:
     - docker
+
+  # install custom golang
+  post:
+    - mkdir -p download
+    - test -e download/$GODIST || curl -o download/$GODIST https://storage.googleapis.com/golang/$GODIST
+    # verify it
+    - echo "$GODIST_HASH  download/$GODIST" | sha256sum -c
+    - sudo rm -rf /usr/local/go
+
+    - sudo tar -C /usr/local -xzf download/$GODIST
 
 dependencies:
   cache_directories:
     - "~/docker"
-
-  pre:
-    - sudo add-apt-repository -y ppa:gophers/archive; sudo apt-get update; sudo apt-get install pigz; sudo apt-get install golang-1.9-go
+    - "~/download"
 
   override:
+    - mkdir -p $GWS/pkg $GWS/bin $A
+    - ln -fs $HOME/$CIRCLE_PROJECT_REPONAME $B
+
+    - echo 'export GOPATH=$GWS' >> ~/.circlerc
+
     - docker info
 
     # Build the container, using Circle's Docker cache. Only use 1 image per
@@ -38,7 +63,7 @@ dependencies:
     - go version
     - mkdir -p /home/ubuntu/go/src/github.com/mozilla
     - ln -s $PWD /home/ubuntu/go/src/github.com/mozilla/doorman
-    - make -e GOPATH=/home/ubuntu/go
+    - cd "$B" && make
     - docker build --pull -t app .
 
     # Clean up any old images; save the new one.
