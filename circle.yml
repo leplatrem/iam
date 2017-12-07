@@ -38,7 +38,7 @@ dependencies:
 
   override:
     - mkdir -p $GWS/pkg $GWS/bin $A
-    - ln -fs $HOME/$CIRCLE_PROJECT_REPONAME $B
+    - ln -fs $HOME/$CIRCLE_PROJECT_REPONAME $A
 
     - echo 'export GOPATH=$GWS' >> ~/.circlerc
 
@@ -61,13 +61,15 @@ dependencies:
 
     # build the actual deployment container
     - go version
-    - mkdir -p /home/ubuntu/go/src/github.com/mozilla
-    - ln -s $PWD /home/ubuntu/go/src/github.com/mozilla/doorman
     - cd "$B" && make
     - docker build --pull -t app .
 
     # Clean up any old images; save the new one.
     - I="image-$(date +%j).gz"; mkdir -p ~/docker; rm ~/docker/*; docker save app | pigz --fast -c > ~/docker/$I; ls -l ~/docker
+
+test:
+  override:
+    - cd "$B" && make test
 
 # appropriately tag and push the container to dockerhub
 deployment:
