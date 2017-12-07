@@ -36,7 +36,10 @@ dependencies:
 
     # build the actual deployment container
     - go version
-    - make -e GOPATH=$(dirname `pwd`)/go
+    - export GOPATH=$(dirname `pwd`)/go
+    - make $GOPATH/src/github.com/mozilla/doorman -e GOPATH=$GOPATH
+    - cd $(dirname `pwd`)/go/src/github.com/mozilla/doorman/
+    - make -e GOPATH=$GOPATH
     - docker build --pull -t app .
 
     # Clean up any old images; save the new one.
