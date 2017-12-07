@@ -36,6 +36,9 @@ dependencies:
     - "~/docker"
     - "~/download"
 
+  pre:
+    - sudo apt-get update; sudo apt-get install pigz
+
   override:
     - mkdir -p $GWS/pkg $GWS/bin $A
     - ln -fs $HOME/$CIRCLE_PROJECT_REPONAME $A
