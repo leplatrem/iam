@@ -17,7 +17,7 @@ $(GOPATH):
 
 $(GO_PACKAGE): $(GOPATH)
 	mkdir -p $(shell dirname ${GO_PACKAGE})
-	ln -sf `pwd` $(GO_PACKAGE)
+	if [ ! -e $(GOPACKAGE) ]; then ln -sf `pwd` $(GO_PACKAGE); fi
 
 $(GO_DEP): $(GOPATH) $(GO_PACKAGE)
 	go get -u github.com/golang/dep/cmd/dep
