@@ -15,9 +15,10 @@ clean:
 $(GOPATH):
 	mkdir -p $(GOPATH)
 
+go-package: $(GO_PACKAGE)
 $(GO_PACKAGE): $(GOPATH)
 	mkdir -p $(shell dirname ${GO_PACKAGE})
-	if [ ! -e $(GOPACKAGE) ]; then ln -sf `pwd` $(GO_PACKAGE); fi
+	if [ ! -e $(GOPACKAGE) ]; then ln -sf $$PWD $(GO_PACKAGE); fi
 
 $(GO_DEP): $(GOPATH) $(GO_PACKAGE)
 	go get -u github.com/golang/dep/cmd/dep
