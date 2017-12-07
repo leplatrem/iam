@@ -72,6 +72,7 @@ dependencies:
 
 test:
   override:
+    - git checkout version.json
     - cd "$B" && make test
 
 # appropriately tag and push the container to dockerhub
