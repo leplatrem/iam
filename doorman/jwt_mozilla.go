@@ -1,9 +1,7 @@
 package doorman
 
 import (
-	"net/http"
-
-	auth0 "github.com/auth0-community/go-auth0"
+	jose "gopkg.in/square/go-jose.v2"
 	jwt "gopkg.in/square/go-jose.v2/jwt"
 )
 
@@ -16,27 +14,11 @@ type MozillaClaims struct {
 	Groups   []string     `json:"https://sso.mozilla.com/claim/groups"`
 }
 
-// MozillaAuth0Validator is the implementation of JWTValidator for Auth0.
-type MozillaAuth0Validator struct {
-	Issuer    string
-	validator *auth0.JWTValidator
-}
+type MozillaClaimExtractor struct{}
 
-// Initialize will fetch Auth0 public keys and instantiate a validator.
-func (v *MozillaAuth0Validator) Initialize() error {
-	validator, err := auth0Validator(v.Issuer)
-	if err != nil {
-		return err
-	}
-	v.validator = validator
-	return nil
-}
-
-// ExtractClaims validates the token from request, and returns the JWT claims.
-func (v *MozillaAuth0Validator) ExtractClaims(request *http.Request) (*Claims, error) {
-	token, err := v.validator.ValidateRequest(request)
+func (*MozillaClaimExtractor) Extract(token *jwt.JSONWebToken, key *jose.JSONWebKey) (*Claims, error) {
 	mozclaims := MozillaClaims{}
-	err = v.validator.Claims(request, token, &mozclaims)
+	err := token.Claims(key, &claims)
 	if err != nil {
 		return nil, err
 	}
@@ -53,5 +35,6 @@ func (v *MozillaAuth0Validator) ExtractClaims(request *http.Request) (*Claims, e
 		Email:    email,
 		Groups:   mozclaims.Groups,
 	}
+
 	return &claims, nil
 }

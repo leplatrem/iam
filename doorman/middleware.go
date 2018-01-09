@@ -46,7 +46,7 @@ func VerifyJWTMiddleware(doorman Doorman) gin.HandlerFunc {
 		}
 		// No JWT validator configured for this service.
 		if validator == nil {
-			// Do nothing.
+			// Do nothing. The principals list will be empty.
 			c.Next()
 			return
 		}
