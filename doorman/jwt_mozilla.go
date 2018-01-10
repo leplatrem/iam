@@ -14,11 +14,11 @@ type MozillaClaims struct {
 	Groups   []string     `json:"https://sso.mozilla.com/claim/groups"`
 }
 
-type MozillaClaimExtractor struct{}
+type mozillaClaimExtractor struct{}
 
-func (*MozillaClaimExtractor) Extract(token *jwt.JSONWebToken, key *jose.JSONWebKey) (*Claims, error) {
+func (*mozillaClaimExtractor) Extract(token *jwt.JSONWebToken, key *jose.JSONWebKey) (*Claims, error) {
 	mozclaims := MozillaClaims{}
-	err := token.Claims(key, &claims)
+	err := token.Claims(key, &mozclaims)
 	if err != nil {
 		return nil, err
 	}

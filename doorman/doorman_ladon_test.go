@@ -154,7 +154,7 @@ func TestBadServicesConfig(t *testing.T) {
 	// Bad JWT issuer
 	err = d.LoadPolicies(ServicesConfig{
 		ServiceConfig{
-			JWTIssuer: "https://perlin-pinpin",
+			JWTIssuer: "http://perlin-pinpin",
 		},
 	})
 	assert.NotNil(t, err)
@@ -192,10 +192,10 @@ func TestLoadPoliciesTwice(t *testing.T) {
 	// Load bad policies, does not affect existing.
 	err := doorman.LoadPolicies(ServicesConfig{
 		ServiceConfig{
-			JWTIssuer: "https://perlin-pinpin",
+			JWTIssuer: "http://perlin-pinpin",
 		},
 	})
-	assert.Contains(t, err.Error(), "issuer \"https://perlin-pinpin\" not supported or has bad format")
+	assert.Contains(t, err.Error(), "issuer \"http://perlin-pinpin\" not supported or has bad format")
 	_, ok := doorman.ladons["https://sample.yaml"]
 	assert.True(t, ok)
 }

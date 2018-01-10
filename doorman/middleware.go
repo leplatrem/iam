@@ -52,7 +52,7 @@ func VerifyJWTMiddleware(doorman Doorman) gin.HandlerFunc {
 		}
 
 		// Verify the JWT
-		claims, err := validator.ExtractClaims(c.Request)
+		claims, err := validator.ValidateRequest(c.Request)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"message": err.Error(),

@@ -23,7 +23,7 @@ func (v *TestValidator) Initialize() error {
 	args := v.Called()
 	return args.Error(0)
 }
-func (v *TestValidator) ExtractClaims(request *http.Request) (*Claims, error) {
+func (v *TestValidator) ValidateRequest(request *http.Request) (*Claims, error) {
 	args := v.Called(request)
 	return args.Get(0).(*Claims), args.Error(1)
 }
@@ -45,14 +45,14 @@ func TestJWTMiddleware(t *testing.T) {
 		Email:    "user@corp.com",
 		Groups:   []string{"Employee", "Admins"},
 	}
-	v.On("ExtractClaims", mock.Anything).Return(claims, nil)
+	v.On("ValidateRequest", mock.Anything).Return(claims, nil)
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	c.Request, _ = http.NewRequest("GET", "/get", nil)
 	c.Request.Header.Set("Origin", audience)
 
 	handler(c)
 
-	v.AssertCalled(t, "ExtractClaims", c.Request)
+	v.AssertCalled(t, "ValidateRequest", c.Request)
 
 	// Principals are set in context.
 	principals, ok := c.Get(PrincipalsContextKey)
@@ -94,7 +94,7 @@ func TestJWTMiddleware(t *testing.T) {
 		Audience: []string{audience},
 	}
 	v = &TestValidator{}
-	v.On("ExtractClaims", mock.Anything).Return(claims, nil)
+	v.On("ValidateRequest", mock.Anything).Return(claims, nil)
 	doorman.jwtValidators[audience] = v
 	c, _ = gin.CreateTestContext(httptest.NewRecorder())
 	c.Request, _ = http.NewRequest("GET", "/get", nil)
@@ -109,7 +109,7 @@ func TestJWTMiddleware(t *testing.T) {
 		Audience: []string{"http://some.other.api"},
 	}
 	v = &TestValidator{}
-	v.On("ExtractClaims", mock.Anything).Return(claims, nil)
+	v.On("ValidateRequest", mock.Anything).Return(claims, nil)
 	doorman.jwtValidators[audience] = v
 	c, _ = gin.CreateTestContext(httptest.NewRecorder())
 	c.Request, _ = http.NewRequest("GET", "/get", nil)

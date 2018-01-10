@@ -6,13 +6,15 @@ import (
 	log "github.com/sirupsen/logrus"
 	"net/http"
 	"strings"
+	"time"
 
 	jose "gopkg.in/square/go-jose.v2"
+	jwt "gopkg.in/square/go-jose.v2/jwt"
 )
 
 // OpenIDConfiguration is the OpenID provider metadata about endpoints etc.
 type OpenIDConfiguration struct {
-	JWKSUri     string `json:jwks_uri`
+	JWKSUri string `json:"jwks_uri"`
 }
 
 // JWKS are the JWT public keys
@@ -20,16 +22,12 @@ type JWKS struct {
 	Keys []jose.JSONWebKey `json:"keys"`
 }
 
-type ClaimExtractor interface {
-	Extract(*jwt.JSONWebToken, *jose.JSONWebKey) (*Claims)
-}
-
-type JWTGenericValidator struct {
-	Issuer string
+type jwtGenericValidator struct {
+	Issuer         string
 	ClaimExtractor ClaimExtractor
 }
 
-func (v *JWTGenericValidator) ExtractClaims(r *http.Request) (*Claims, error)
+func (v *jwtGenericValidator) ValidateRequest(r *http.Request) (*Claims, error) {
 	token, key, err := ValidateJWT(v.Issuer, r)
 	if err != nil {
 		return nil, err
@@ -41,15 +39,15 @@ func (v *JWTGenericValidator) ExtractClaims(r *http.Request) (*Claims, error)
 	return claims, nil
 }
 
-type DefaultClaimExtractor struct {}
+type defaultClaimExtractor struct{}
 
-func (*DefaultClaimExtractor) Extract(token *jwt.JSONWebToken, key *jose.JSONWebKey) (*Claims, error) {
-	claims := Claims{}
-	err := token.Claims(key, &claims)
+func (*defaultClaimExtractor) Extract(token *jwt.JSONWebToken, key *jose.JSONWebKey) (*Claims, error) {
+	claims := &Claims{}
+	err := token.Claims(key, claims)
 	if err != nil {
 		return nil, err
 	}
-	return nil, claims
+	return claims, nil
 }
 
 func fetchOpenIDConfiguration(issuer string) (*OpenIDConfiguration, error) {
@@ -61,16 +59,20 @@ func fetchOpenIDConfiguration(issuer string) (*OpenIDConfiguration, error) {
 		return nil, err
 	}
 	defer response.Body.Close()
-	config := OpenIDConfiguration{}
-	err = json.NewDecoder(response.Body).Decode(&config)
+	config := &OpenIDConfiguration{}
+	err = json.NewDecoder(response.Body).Decode(config)
 	if err != nil {
 		return nil, err
+	}
+	if config.JWKSUri == "" {
+		return nil, fmt.Errorf("No jwks_uri attribute in OpenID configuration")
 	}
 	return config, nil
 }
 
 func downloadKeys(uri string) (*JWKS, error) {
 	log.Debugf("Fetch public keys from %s", uri)
+
 	response, err := http.Get(uri)
 	if err != nil {
 		return nil, err
@@ -78,11 +80,11 @@ func downloadKeys(uri string) (*JWKS, error) {
 	defer response.Body.Close()
 
 	if contentHeader := response.Header.Get("Content-Type"); !strings.HasPrefix(contentHeader, "application/json") {
-		return nil, fmt.Error("JWKS endpoint has not JSON content-type")
+		return nil, fmt.Errorf("JWKS endpoint has not JSON content-type")
 	}
 
-	var jwks = JWKS{}
-	err = json.NewDecoder(response.Body).Decode(&jwks)
+	var jwks = &JWKS{}
+	err = json.NewDecoder(response.Body).Decode(jwks)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +96,8 @@ func downloadKeys(uri string) (*JWKS, error) {
 	return jwks, nil
 }
 
-func GetKey(issuer string, id string) (*jose.JSONWebKey, error) {
+// GetJSONWebKey downloads the key with the specified ID from this issuer.
+func GetJSONWebKey(issuer string, id string) (*jose.JSONWebKey, error) {
 	// XXX: store in cache.
 	config, err := fetchOpenIDConfiguration(issuer)
 	if err != nil {
@@ -108,7 +111,7 @@ func GetKey(issuer string, id string) (*jose.JSONWebKey, error) {
 
 	for _, k := range jwks.Keys {
 		if k.KeyID == id {
-			return k, nil
+			return &k, nil
 		}
 	}
 	return nil, fmt.Errorf("No JWT key with id %q", id)
@@ -120,7 +123,7 @@ func FromHeader(r *http.Request) (*jwt.JSONWebToken, error) {
 		raw := []byte(authorizationHeader[7:])
 		return jwt.ParseSigned(string(raw))
 	}
-	return fmt.Error("Token not found")
+	return nil, fmt.Errorf("Token not found")
 }
 
 // ValidateJWT verifies the JWT signature and claims.
@@ -135,16 +138,16 @@ func ValidateJWT(issuer string, r *http.Request) (*jwt.JSONWebToken, *jose.JSONW
 	// 2. Read JWT headers
 
 	if len(token.Headers) < 1 {
-		return nil, nil, fmt.Error("No headers in the token")
+		return nil, nil, fmt.Errorf("No headers in the token")
 	}
 	header := token.Headers[0]
-	if header.Algorithm != jose.RS256 {
-		return nil, nil, fmt.Error("Invalid algorithm")
+	if header.Algorithm != string(jose.RS256) {
+		return nil, nil, fmt.Errorf("Invalid algorithm")
 	}
 
 	// 3. Get public key with specified ID
 
-	key, err := GetKey(issuer, header.KeyID)
+	key, err := GetJSONWebKey(issuer, header.KeyID)
 	if err != nil {
 		return nil, nil, err
 	}

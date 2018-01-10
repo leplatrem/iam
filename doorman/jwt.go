@@ -1,11 +1,11 @@
 package doorman
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
 
+	jose "gopkg.in/square/go-jose.v2"
 	jwt "gopkg.in/square/go-jose.v2/jwt"
 )
 
@@ -19,7 +19,12 @@ type Claims struct {
 
 // JWTValidator is the interface in charge of extracting JWT claims from request.
 type JWTValidator interface {
-	ExtractClaims(*http.Request) (*Claims, error)
+	ValidateRequest(*http.Request) (*Claims, error)
+}
+
+// ClaimExtractor is in charge of extracting meaningful info from JWT payload.
+type ClaimExtractor interface {
+	Extract(*jwt.JSONWebToken, *jose.JSONWebKey) (*Claims, error)
 }
 
 var jwtValidators map[string]JWTValidator
@@ -37,12 +42,14 @@ func NewJWTValidator(issuer string) (JWTValidator, error) {
 	// Reuse JWT validators instances among configs if they are for the same issuer.
 	v, ok := jwtValidators[issuer]
 	if !ok {
-		extractor := DefaultClaimExtractor{}
+		var extractor ClaimExtractor
 		if strings.Contains(issuer, "mozilla.auth0.com") {
-			extractor = MozillaClaimExtractor{}
+			extractor = &mozillaClaimExtractor{}
+		} else {
+			extractor = &defaultClaimExtractor{}
 		}
 
-		v = &JWTGenericValidator{
+		v = &jwtGenericValidator{
 			Issuer:         issuer,
 			ClaimExtractor: extractor,
 		}
