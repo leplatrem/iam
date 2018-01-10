@@ -28,22 +28,11 @@ type jwtGenericValidator struct {
 }
 
 func (v *jwtGenericValidator) ValidateRequest(r *http.Request) (*Claims, error) {
-	token, key, err := ValidateJWT(v.Issuer, r)
+	token, key, err := validateJWT(v.Issuer, r)
 	if err != nil {
 		return nil, err
 	}
 	claims, err := v.ClaimExtractor.Extract(token, key)
-	if err != nil {
-		return nil, err
-	}
-	return claims, nil
-}
-
-type defaultClaimExtractor struct{}
-
-func (*defaultClaimExtractor) Extract(token *jwt.JSONWebToken, key *jose.JSONWebKey) (*Claims, error) {
-	claims := &Claims{}
-	err := token.Claims(key, claims)
 	if err != nil {
 		return nil, err
 	}
@@ -96,8 +85,8 @@ func downloadKeys(uri string) (*JWKS, error) {
 	return jwks, nil
 }
 
-// GetJSONWebKey downloads the key with the specified ID from this issuer.
-func GetJSONWebKey(issuer string, id string) (*jose.JSONWebKey, error) {
+// getJSONWebKey downloads the key with the specified ID from this issuer.
+func getJSONWebKey(issuer string, id string) (*jose.JSONWebKey, error) {
 	// XXX: store in cache.
 	config, err := fetchOpenIDConfiguration(issuer)
 	if err != nil {
@@ -117,8 +106,8 @@ func GetJSONWebKey(issuer string, id string) (*jose.JSONWebKey, error) {
 	return nil, fmt.Errorf("No JWT key with id %q", id)
 }
 
-// FromHeader reads the authorization header value and parses it as JSON Web Token.
-func FromHeader(r *http.Request) (*jwt.JSONWebToken, error) {
+// fromHeader reads the authorization header value and parses it as JSON Web Token.
+func fromHeader(r *http.Request) (*jwt.JSONWebToken, error) {
 	if authorizationHeader := r.Header.Get("Authorization"); len(authorizationHeader) > 7 && strings.EqualFold(authorizationHeader[0:7], "BEARER ") {
 		raw := []byte(authorizationHeader[7:])
 		return jwt.ParseSigned(string(raw))
@@ -126,11 +115,11 @@ func FromHeader(r *http.Request) (*jwt.JSONWebToken, error) {
 	return nil, fmt.Errorf("Token not found")
 }
 
-// ValidateJWT verifies the JWT signature and claims.
-func ValidateJWT(issuer string, r *http.Request) (*jwt.JSONWebToken, *jose.JSONWebKey, error) {
+// validateJWT verifies the JWT signature and claims.
+func validateJWT(issuer string, r *http.Request) (*jwt.JSONWebToken, *jose.JSONWebKey, error) {
 	// 1. Extract JWT from request headers
 
-	token, err := FromHeader(r)
+	token, err := fromHeader(r)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -147,7 +136,7 @@ func ValidateJWT(issuer string, r *http.Request) (*jwt.JSONWebToken, *jose.JSONW
 
 	// 3. Get public key with specified ID
 
-	key, err := GetJSONWebKey(issuer, header.KeyID)
+	key, err := getJSONWebKey(issuer, header.KeyID)
 	if err != nil {
 		return nil, nil, err
 	}
