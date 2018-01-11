@@ -25,18 +25,102 @@ type JWKS struct {
 type jwtGenericValidator struct {
 	Issuer         string
 	ClaimExtractor ClaimExtractor
+	_jwks          *JWKS
+	_config        *OpenIDConfiguration
+}
+
+func (v *jwtGenericValidator) config() (*OpenIDConfiguration, error) {
+	// XXX: store in cache.
+	if v._config == nil {
+		config, err := fetchOpenIDConfiguration(v.Issuer)
+		if err != nil {
+			return nil, err
+		}
+		v._config = config
+	}
+	return v._config, nil
+}
+
+func (v *jwtGenericValidator) jwks() (*JWKS, error) {
+	// XXX: store in cache.
+	if v._jwks == nil {
+		config, err := v.config()
+		if err != nil {
+			return nil, err
+		}
+		jwks, err := downloadKeys(config.JWKSUri)
+		if err != nil {
+			return nil, err
+		}
+		v._jwks = jwks
+	}
+	return v._jwks, nil
 }
 
 func (v *jwtGenericValidator) ValidateRequest(r *http.Request) (*Claims, error) {
-	token, key, err := validateJWT(v.Issuer, r)
+	// 1. Extract JWT from request headers
+	token, err := fromHeader(r)
 	if err != nil {
 		return nil, err
 	}
+
+	// 2. Read JWT headers
+	if len(token.Headers) < 1 {
+		return nil, fmt.Errorf("No headers in the token")
+	}
+	header := token.Headers[0]
+	if header.Algorithm != string(jose.RS256) {
+		return nil, fmt.Errorf("Invalid algorithm")
+	}
+
+	// 3. Get public key with specified ID
+	keys, err := v.jwks()
+	if err != nil {
+		return nil, err
+	}
+	var key *jose.JSONWebKey
+	for _, k := range keys.Keys {
+		if k.KeyID == header.KeyID {
+			key = &k
+			break
+		}
+	}
+	if key == nil {
+		return nil, fmt.Errorf("No JWT key with id %q", header.KeyID)
+	}
+
+	// 4. Parse and verify signature.
+	jwtClaims := jwt.Claims{}
+	err = token.Claims(key, &jwtClaims)
+	if err != nil {
+		return nil, err
+	}
+
+	// 5. Validate issuer, claims and expiration.
+	// Will check audience only when request comes in, leave empty for now.
+	audience := []string{}
+	expected := jwt.Expected{Issuer: v.Issuer, Audience: audience}
+	expected = expected.WithTime(time.Now())
+	err = jwtClaims.Validate(expected)
+	if err != nil {
+		return nil, err
+	}
+
+	// 6. Extract relevant claims for Doorman.
 	claims, err := v.ClaimExtractor.Extract(token, key)
 	if err != nil {
 		return nil, err
 	}
 	return claims, nil
+}
+
+// fromHeader reads the authorization header value and parses it as JSON Web Token.
+func fromHeader(r *http.Request) (*jwt.JSONWebToken, error) {
+	if authorizationHeader := r.Header.Get("Authorization"); len(authorizationHeader) > 7 && strings.EqualFold(authorizationHeader[0:7], "BEARER ") {
+		raw := []byte(authorizationHeader[7:])
+		return jwt.ParseSigned(string(raw))
+	}
+	return nil, fmt.Errorf("Token not found")
 }
 
 func fetchOpenIDConfiguration(issuer string) (*OpenIDConfiguration, error) {
@@ -83,78 +167,4 @@ func downloadKeys(uri string) (*JWKS, error) {
 	}
 
 	return jwks, nil
-}
-
-// getJSONWebKey downloads the key with the specified ID from this issuer.
-func getJSONWebKey(issuer string, id string) (*jose.JSONWebKey, error) {
-	// XXX: store in cache.
-	config, err := fetchOpenIDConfiguration(issuer)
-	if err != nil {
-		return nil, err
-	}
-
-	jwks, err := downloadKeys(config.JWKSUri)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, k := range jwks.Keys {
-		if k.KeyID == id {
-			return &k, nil
-		}
-	}
-	return nil, fmt.Errorf("No JWT key with id %q", id)
-}
-
-// fromHeader reads the authorization header value and parses it as JSON Web Token.
-func fromHeader(r *http.Request) (*jwt.JSONWebToken, error) {
-	if authorizationHeader := r.Header.Get("Authorization"); len(authorizationHeader) > 7 && strings.EqualFold(authorizationHeader[0:7], "BEARER ") {
-		raw := []byte(authorizationHeader[7:])
-		return jwt.ParseSigned(string(raw))
-	}
-	return nil, fmt.Errorf("Token not found")
-}
-
-// validateJWT verifies the JWT signature and claims.
-func validateJWT(issuer string, r *http.Request) (*jwt.JSONWebToken, *jose.JSONWebKey, error) {
-	// 1. Extract JWT from request headers
-
-	token, err := fromHeader(r)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// 2. Read JWT headers
-
-	if len(token.Headers) < 1 {
-		return nil, nil, fmt.Errorf("No headers in the token")
-	}
-	header := token.Headers[0]
-	if header.Algorithm != string(jose.RS256) {
-		return nil, nil, fmt.Errorf("Invalid algorithm")
-	}
-
-	// 3. Get public key with specified ID
-
-	key, err := getJSONWebKey(issuer, header.KeyID)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// 4. Parse and verify signature.
-
-	jwtClaims := jwt.Claims{}
-	err = token.Claims(key, &jwtClaims)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// 5. Validate issuer, claims and expiration.
-
-	// Will check audience only when request comes in, leave empty for now.
-	audience := []string{}
-	expected := jwt.Expected{Issuer: issuer, Audience: audience}
-	expected = expected.WithTime(time.Now())
-	err = jwtClaims.Validate(expected)
-	return token, key, err
 }
