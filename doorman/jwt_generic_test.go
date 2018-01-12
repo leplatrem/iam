@@ -129,3 +129,14 @@ func TestValidateRequest(t *testing.T) {
 	require.NotNil(t, err)
 	assert.Contains(t, err.Error(), "validation failed, token is expired")
 }
+
+func BenchmarkParseKeys(b *testing.B) {
+	// Warm cache.
+	validator := newJWTGenericValidator("https://auth.mozilla.auth0.com", nil)
+	validator.jwks()
+	b.ResetTimer()
+	// Bench parsing of cache bytes into keys objects.
+	for i := 0; i < b.N; i++ {
+		validator.jwks()
+	}
+}
