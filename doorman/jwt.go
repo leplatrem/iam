@@ -29,10 +29,8 @@ func NewJWTValidator(issuer string) (JWTValidator, error) {
 		var extractor ClaimExtractor
 		if strings.Contains(issuer, "mozilla.auth0.com") {
 			extractor = &mozillaClaimExtractor{}
-		} else {
-			extractor = &defaultClaimExtractor{}
 		}
-		v = NewJWTGenericValidator(issuer, extractor)
+		v = newJWTGenericValidator(issuer, extractor)
 		jwtValidators[issuer] = v
 	}
 	return v, nil

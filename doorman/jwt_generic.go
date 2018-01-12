@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	log "github.com/sirupsen/logrus"
+	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/allegro/bigcache"
 	jose "gopkg.in/square/go-jose.v2"
 	jwt "gopkg.in/square/go-jose.v2/jwt"
 )
@@ -26,45 +28,82 @@ type jwtGenericValidator struct {
 	Issuer             string
 	ClaimExtractor     ClaimExtractor
 	SignatureAlgorithm jose.SignatureAlgorithm
-	_jwks              *JWKS
-	_config            *OpenIDConfiguration
+	cache              *bigcache.BigCache
 }
 
-// NewJWTGenericValidator returns a generic JWT validator of this issuer.
-func NewJWTGenericValidator(issuer string, extractor ClaimExtractor) JWTValidator {
+// newJWTGenericValidator returns a generic JWT validator of this issuer.
+func newJWTGenericValidator(issuer string, extractor ClaimExtractor) *jwtGenericValidator {
+	cache, _ := bigcache.NewBigCache(bigcache.DefaultConfig(1 * time.Hour))
+
+	if extractor == nil {
+		extractor = &defaultClaimExtractor{}
+	}
+
 	return &jwtGenericValidator{
 		Issuer:             issuer,
 		ClaimExtractor:     extractor,
 		SignatureAlgorithm: jose.RS256,
+		cache:              cache,
 	}
 }
 
 func (v *jwtGenericValidator) config() (*OpenIDConfiguration, error) {
-	// XXX: store in cache.
-	if v._config == nil {
-		config, err := fetchOpenIDConfiguration(v.Issuer)
+	cacheKey := "config:" + v.Issuer
+	data, err := v.cache.Get(cacheKey)
+
+	// Cache is empty or expired: fetch again.
+	if err != nil {
+		uri := strings.TrimRight(v.Issuer, "/") + "/.well-known/openid-configuration"
+		log.Debugf("Fetch OpenID configuration from %s", uri)
+		data, err = downloadJSON(uri)
 		if err != nil {
 			return nil, err
 		}
-		v._config = config
+		v.cache.Set(cacheKey, data)
 	}
-	return v._config, nil
+
+	// XXX: since cache stores bytes, we parse it again at every usage :( ?
+	config := &OpenIDConfiguration{}
+	err = json.Unmarshal(data, config)
+	if err != nil {
+		return nil, err
+	}
+	if config.JWKSUri == "" {
+		return nil, fmt.Errorf("No jwks_uri attribute in OpenID configuration")
+	}
+	return config, nil
 }
 
 func (v *jwtGenericValidator) jwks() (*JWKS, error) {
-	// XXX: store in cache.
-	if v._jwks == nil {
+	cacheKey := "jwks:" + v.Issuer
+	data, err := v.cache.Get(cacheKey)
+
+	// Cache is empty or expired: fetch again.
+	if err != nil {
 		config, err := v.config()
 		if err != nil {
 			return nil, err
 		}
-		jwks, err := downloadKeys(config.JWKSUri)
+		uri := config.JWKSUri
+		log.Debugf("Fetch public keys from %s", uri)
+		data, err = downloadJSON(uri)
 		if err != nil {
 			return nil, err
 		}
-		v._jwks = jwks
+		v.cache.Set(cacheKey, data)
 	}
-	return v._jwks, nil
+
+	// XXX: since cache stores bytes, we parse it again at every usage :( ?
+	var jwks = &JWKS{}
+	err = json.Unmarshal(data, jwks)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(jwks.Keys) < 1 {
+		return nil, fmt.Errorf("No JWKS found")
+	}
+	return jwks, nil
 }
 
 func (v *jwtGenericValidator) ValidateRequest(r *http.Request) (*Claims, error) {
@@ -133,48 +172,18 @@ func fromHeader(r *http.Request) (*jwt.JSONWebToken, error) {
 	return nil, fmt.Errorf("Token not found")
 }
 
-func fetchOpenIDConfiguration(issuer string) (*OpenIDConfiguration, error) {
-	uri := strings.TrimRight(issuer, "/") + "/.well-known/openid-configuration"
-
-	log.Debugf("Fetch OpenID configuration from %s", uri)
+func downloadJSON(uri string) ([]byte, error) {
 	response, err := http.Get(uri)
 	if err != nil {
 		return nil, err
 	}
-	defer response.Body.Close()
-	config := &OpenIDConfiguration{}
-	err = json.NewDecoder(response.Body).Decode(config)
-	if err != nil {
-		return nil, err
-	}
-	if config.JWKSUri == "" {
-		return nil, fmt.Errorf("No jwks_uri attribute in OpenID configuration")
-	}
-	return config, nil
-}
-
-func downloadKeys(uri string) (*JWKS, error) {
-	log.Debugf("Fetch public keys from %s", uri)
-
-	response, err := http.Get(uri)
-	if err != nil {
-		return nil, err
-	}
-	defer response.Body.Close()
-
 	if contentHeader := response.Header.Get("Content-Type"); !strings.HasPrefix(contentHeader, "application/json") {
-		return nil, fmt.Errorf("JWKS endpoint has not JSON content-type")
+		return nil, fmt.Errorf("%s has not a JSON content-type", uri)
 	}
-
-	var jwks = &JWKS{}
-	err = json.NewDecoder(response.Body).Decode(jwks)
+	defer response.Body.Close()
+	data, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return nil, err
 	}
-
-	if len(jwks.Keys) < 1 {
-		return nil, fmt.Errorf("No key found at %q", uri)
-	}
-
-	return jwks, nil
+	return data, nil
 }

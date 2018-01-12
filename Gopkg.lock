@@ -2,6 +2,15 @@
 
 
 [[projects]]
+  name = "github.com/allegro/bigcache"
+  packages = [
+    ".",
+    "queue"
+  ]
+  revision = "aa76879d59fa5d93c43680238227dbf7a53f5c28"
+  version = "v1.0.0"
+
+[[projects]]
   name = "github.com/davecgh/go-spew"
   packages = ["spew"]
   revision = "6d212800a42e8ab5c146b8ace3490ee17e5225f9"
@@ -142,6 +151,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "b95161d2d5ca1854218dd967eb2e0867fca97f9d134613aefb8efb37857346ff"
+  inputs-digest = "01312e2aa5025dc69f4a1b18a2aa8b7dc2a5fee9dca448c103d1cea8604d92ee"
   solver-name = "gps-cdcl"
   solver-version = 1
