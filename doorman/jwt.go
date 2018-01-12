@@ -32,12 +32,7 @@ func NewJWTValidator(issuer string) (JWTValidator, error) {
 		} else {
 			extractor = &defaultClaimExtractor{}
 		}
-
-		v = &jwtGenericValidator{
-			Issuer:         issuer,
-			ClaimExtractor: extractor,
-		}
-
+		v = NewJWTGenericValidator(issuer, extractor)
 		jwtValidators[issuer] = v
 	}
 	return v, nil

@@ -23,10 +23,20 @@ type JWKS struct {
 }
 
 type jwtGenericValidator struct {
-	Issuer         string
-	ClaimExtractor ClaimExtractor
-	_jwks          *JWKS
-	_config        *OpenIDConfiguration
+	Issuer             string
+	ClaimExtractor     ClaimExtractor
+	SignatureAlgorithm jose.SignatureAlgorithm
+	_jwks              *JWKS
+	_config            *OpenIDConfiguration
+}
+
+// NewJWTGenericValidator returns a generic JWT validator of this issuer.
+func NewJWTGenericValidator(issuer string, extractor ClaimExtractor) JWTValidator {
+	return &jwtGenericValidator{
+		Issuer:             issuer,
+		ClaimExtractor:     extractor,
+		SignatureAlgorithm: jose.RS256,
+	}
 }
 
 func (v *jwtGenericValidator) config() (*OpenIDConfiguration, error) {
@@ -69,7 +79,7 @@ func (v *jwtGenericValidator) ValidateRequest(r *http.Request) (*Claims, error) 
 		return nil, fmt.Errorf("No headers in the token")
 	}
 	header := token.Headers[0]
-	if header.Algorithm != string(jose.RS256) {
+	if header.Algorithm != string(v.SignatureAlgorithm) {
 		return nil, fmt.Errorf("Invalid algorithm")
 	}
 
