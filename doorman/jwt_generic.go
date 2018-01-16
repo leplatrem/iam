@@ -32,13 +32,13 @@ type jwtGenericValidator struct {
 }
 
 // newJWTGenericValidator returns a generic JWT validator of this issuer.
-func newJWTGenericValidator(issuer string, extractor ClaimExtractor) *jwtGenericValidator {
+func newJWTGenericValidator(issuer string) *jwtGenericValidator {
 	cache, _ := bigcache.NewBigCache(bigcache.DefaultConfig(1 * time.Hour))
 
-	if extractor == nil {
-		extractor = &defaultClaimExtractor{}
+	var extractor ClaimExtractor = defaultExtractor
+	if strings.Contains(issuer, "mozilla.auth0.com") {
+		extractor = mozillaExtractor
 	}
-
 	return &jwtGenericValidator{
 		Issuer:             issuer,
 		ClaimExtractor:     extractor,

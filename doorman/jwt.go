@@ -26,11 +26,7 @@ func NewJWTValidator(issuer string) (JWTValidator, error) {
 	// Reuse JWT validators instances among configs if they are for the same issuer.
 	v, ok := jwtValidators[issuer]
 	if !ok {
-		var extractor ClaimExtractor
-		if strings.Contains(issuer, "mozilla.auth0.com") {
-			extractor = &mozillaClaimExtractor{}
-		}
-		v = newJWTGenericValidator(issuer, extractor)
+		v = newJWTGenericValidator(issuer)
 		jwtValidators[issuer] = v
 	}
 	return v, nil

@@ -28,3 +28,5 @@ func (*defaultClaimExtractor) Extract(token *jwt.JSONWebToken, key *jose.JSONWeb
 	}
 	return claims, nil
 }
+
+var defaultExtractor = &defaultClaimExtractor{}

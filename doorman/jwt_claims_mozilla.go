@@ -38,3 +38,5 @@ func (*mozillaClaimExtractor) Extract(token *jwt.JSONWebToken, key *jose.JSONWeb
 
 	return &claims, nil
 }
+
+var mozillaExtractor = &mozillaClaimExtractor{}
