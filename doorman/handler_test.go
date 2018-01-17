@@ -71,7 +71,7 @@ func TestAllowedVerifiesJWT(t *testing.T) {
 	var response ErrorResponse
 	// Missing Authorization header.
 	performAllowed(t, r, body, http.StatusUnauthorized, &response)
-	assert.Equal(t, "Token not found", response.Message)
+	assert.Equal(t, "token not found", response.Message)
 }
 
 func TestAllowedHandlerBadRequest(t *testing.T) {

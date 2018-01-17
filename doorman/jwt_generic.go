@@ -3,15 +3,16 @@ package doorman
 import (
 	"encoding/json"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/allegro/bigcache"
 	jose "gopkg.in/square/go-jose.v2"
 	jwt "gopkg.in/square/go-jose.v2/jwt"
+	log "github.com/sirupsen/logrus"
 )
 
 // OpenIDConfiguration is the OpenID provider metadata about endpoints etc.
@@ -57,7 +58,7 @@ func (v *jwtGenericValidator) config() (*OpenIDConfiguration, error) {
 		log.Debugf("Fetch OpenID configuration from %s", uri)
 		data, err = downloadJSON(uri)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "failed to fetch OpenID configuration")
 		}
 		v.cache.Set(cacheKey, data)
 	}
@@ -66,10 +67,10 @@ func (v *jwtGenericValidator) config() (*OpenIDConfiguration, error) {
 	config := &OpenIDConfiguration{}
 	err = json.Unmarshal(data, config)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to parse OpenID configuration")
 	}
 	if config.JWKSUri == "" {
-		return nil, fmt.Errorf("No jwks_uri attribute in OpenID configuration")
+		return nil, fmt.Errorf("no jwks_uri attribute in OpenID configuration")
 	}
 	return config, nil
 }
@@ -88,7 +89,7 @@ func (v *jwtGenericValidator) jwks() (*JWKS, error) {
 		log.Debugf("Fetch public keys from %s", uri)
 		data, err = downloadJSON(uri)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "failed to fetch JWKS")
 		}
 		v.cache.Set(cacheKey, data)
 	}
@@ -97,11 +98,11 @@ func (v *jwtGenericValidator) jwks() (*JWKS, error) {
 	var jwks = &JWKS{}
 	err = json.Unmarshal(data, jwks)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to parse JWKS")
 	}
 
 	if len(jwks.Keys) < 1 {
-		return nil, fmt.Errorf("No JWKS found")
+		return nil, fmt.Errorf("no JWKS found")
 	}
 	return jwks, nil
 }
@@ -115,11 +116,11 @@ func (v *jwtGenericValidator) ValidateRequest(r *http.Request) (*Claims, error) 
 
 	// 2. Read JWT headers
 	if len(token.Headers) < 1 {
-		return nil, fmt.Errorf("No headers in the token")
+		return nil, fmt.Errorf("no headers in the token")
 	}
 	header := token.Headers[0]
 	if header.Algorithm != string(v.SignatureAlgorithm) {
-		return nil, fmt.Errorf("Invalid algorithm")
+		return nil, fmt.Errorf("invalid algorithm")
 	}
 
 	// 3. Get public key with specified ID
@@ -135,14 +136,14 @@ func (v *jwtGenericValidator) ValidateRequest(r *http.Request) (*Claims, error) 
 		}
 	}
 	if key == nil {
-		return nil, fmt.Errorf("No JWT key with id %q", header.KeyID)
+		return nil, fmt.Errorf("no JWT key with id %q", header.KeyID)
 	}
 
 	// 4. Parse and verify signature.
 	jwtClaims := jwt.Claims{}
 	err = token.Claims(key, &jwtClaims)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to read JWT payload")
 	}
 
 	// 5. Validate issuer, claims and expiration.
@@ -152,13 +153,13 @@ func (v *jwtGenericValidator) ValidateRequest(r *http.Request) (*Claims, error) 
 	expected = expected.WithTime(time.Now())
 	err = jwtClaims.Validate(expected)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "invalid JWT claims")
 	}
 
 	// 6. Extract relevant claims for Doorman.
 	claims, err := v.ClaimExtractor.Extract(token, key)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to extract JWT claims")
 	}
 	return claims, nil
 }
@@ -169,7 +170,7 @@ func fromHeader(r *http.Request) (*jwt.JSONWebToken, error) {
 		raw := []byte(authorizationHeader[7:])
 		return jwt.ParseSigned(string(raw))
 	}
-	return nil, fmt.Errorf("Token not found")
+	return nil, fmt.Errorf("token not found")
 }
 
 func downloadJSON(uri string) ([]byte, error) {
@@ -183,7 +184,7 @@ func downloadJSON(uri string) ([]byte, error) {
 	defer response.Body.Close()
 	data, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "could not download JSON")
 	}
 	return data, nil
 }

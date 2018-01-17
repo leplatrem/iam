@@ -47,3 +47,7 @@
 [[constraint]]
   name = "github.com/allegro/bigcache"
   version = "1.0.0"
+
+[[constraint]]
+  name = "github.com/pkg/errors"
+  version = "0.8.0"

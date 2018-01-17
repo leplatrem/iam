@@ -57,7 +57,7 @@ func TestDownloadKeys(t *testing.T) {
 	validator.cache.Set("jwks:https://fake.com", []byte("{}"))
 	_, err = validator.jwks()
 	require.NotNil(t, err)
-	assert.Contains(t, err.Error(), "No JWKS found")
+	assert.Contains(t, err.Error(), "no JWKS found")
 
 	// Good one
 	validator = newJWTGenericValidator("https://auth.mozilla.auth0.com")
@@ -71,12 +71,12 @@ func TestFromHeader(t *testing.T) {
 
 	_, err := fromHeader(r)
 	require.NotNil(t, err)
-	assert.Equal(t, "Token not found", err.Error())
+	assert.Equal(t, "token not found", err.Error())
 
 	r.Header.Set("Authorization", "Basic abc")
 	_, err = fromHeader(r)
 	require.NotNil(t, err)
-	assert.Equal(t, "Token not found", err.Error())
+	assert.Equal(t, "token not found", err.Error())
 
 	r.Header.Set("Authorization", "Bearer abc zy")
 	_, err = fromHeader(r)
@@ -108,13 +108,13 @@ func TestValidateRequest(t *testing.T) {
 	r.Header.Set("Authorization", "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6ImFiYyJ9.abc.123")
 	_, err = validator.ValidateRequest(r)
 	require.NotNil(t, err)
-	assert.Contains(t, err.Error(), "No JWT key with id \"abc\"")
+	assert.Contains(t, err.Error(), "no JWT key with id \"abc\"")
 
 	// // Invalid algorithm
 	r.Header.Set("Authorization", "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWV9.TJVA95OrM7E2cBab30RMHrHDcEfxjoYZgeFONFh7HgQ")
 	_, err = validator.ValidateRequest(r)
 	require.NotNil(t, err)
-	assert.Contains(t, err.Error(), "Invalid algorithm")
+	assert.Contains(t, err.Error(), "invalid algorithm")
 
 	// Bad signature
 	r.Header.Set("Authorization", "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6Ik1rWkRORGN5UmtOR1JURkROamxCTmpaRk9FSkJOMFpCTnpKQlFUTkVNRGhDTUVFd05rRkdPQSJ9.eyJuYW1lIjoiTWF0aGlldSBMZXBsYXRyZSIsImdpdmVuX25hbWUiOiJNYXRoaWV1IiwiZmFtaWx5X25hbWUiOiJMZXBsYXRyZSIsIm5pY2tuYW1lIjoiTWF0aGlldSBMZXBsYXRyZSIsInBpY3R1cmUiOiJodHRwczovL3MuZ3JhdmF0YXIuY29tL2F2YXRhci85NzE5N2YwMTFhM2Q5ZDQ5NGFlODEzNTY2ZjI0Njc5YT9zPTQ4MCZyPXBnJmQ9aHR0cHMlM0ElMkYlMkZjZG4uYXV0aDAuY29tJTJGYXZhdGFycyUyRm1sLnBuZyIsInVwZGF0ZWRfYXQiOiIyMDE3LTEyLTA0VDE1OjUyOjMzLjc2MVoiLCJpc3MiOiJodHRwczovL2F1dGgubW96aWxsYS5hdXRoMC5jb20vIiwic3ViIjoiYWR8TW96aWxsYS1MREFQfG1sZXBsYXRyZSIsImF1ZCI6IlNMb2NmN1NhMWliZDVHTkpNTXFPNTM5ZzdjS3ZXQk9JIiwiZXhwIjoxNTEzMDA3NTcwLCJpYXQiOjE1MTI0MDI3NzAsImFtciI6WyJtZmEiXSwiYWNyIjoiaHR0cDovL3NjaGVtYXMub3BlbmlkLm5ldC9wYXBlL3BvbGljaWVzLzIwMDcvMDYvbXVsdGktZmFjdG9yIiwibm9uY2UiOiJQRkxyLmxtYWhCQWRYaEVSWm0zYVFxc2ZuWjhwcWt0VSIsImF0X2hhc2giOiJTN0Rha1BrZVA0Tnk4SWpTOGxnMHJBIiwiaHR0cHM6Ly9zc28ubW96aWxsYS5jb20vY2xhaW0vZ3JvdXBzIjpbIkludHJhbmV0V2lraSIsIlN0YXRzRGFzaGJvYXJkIiwicGhvbmVib29rX2FjY2VzcyIsImNvcnAtdnBuIiwidnBuX2NvcnAiLCJ2cG5fZGVmYXVsdCIsIkNsb3Vkc2VydmljZXNXaWtpIiwidGVhbV9tb2NvIiwiaXJjY2xvdWQiLCJva3RhX21mYSIsImNsb3Vkc2VydmljZXNfZGV2IiwidnBuX2tpbnRvMV9zdGFnZSIsInZwbl9raW50bzFfcHJvZCIsImVnZW5jaWFfZGUiLCJhY3RpdmVfc2NtX2xldmVsXzEiLCJhbGxfc2NtX2xldmVsXzEiLCJzZXJ2aWNlX3NhZmFyaWJvb2tzIl0sImh0dHBzOi8vc3NvLm1vemlsbGEuY29tL2NsYWltL2VtYWlscyI6WyJtbGVwbGF0cmVAbW96aWxsYS5jb20iLCJtYXRoaWV1QG1vemlsbGEuY29tIiwibWF0aGlldS5sZXBsYXRyZUBtb3ppbGxhLmNvbSJdLCJodHRwczovL3Nzby5tb3ppbGxhLmNvbS9jbGFpbS9kbiI6Im1haWw9bWxlcGxhdHJlQG1vemlsbGEuY29tLG89Y29tLGRjPW1vemlsbGEiLCJodHRwczovL3Nzby5tb3ppbGxhLmNvbS9jbGFpbS9vcmdhbml6YXRpb25Vbml0cyI6Im1haWw9bWxlcGxhdHJlQG1vemlsbGEuY29tLG89Y29tLGRjPW1vemlsbGEiLCJodHRwczovL3Nzby5tb3ppbGxhLmNvbS9jbGFpbS9lbWFpbF9hbGlhc2VzIjpbIm1hdGhpZXVAbW96aWxsYS5jb20iLCJtYXRoaWV1LmxlcGxhdHJlQG1vemlsbGEuY29tIl0sImh0dHBzOi8vc3NvLm1vemlsbGEuY29tL2NsYWltL19IUkRhdGEiOnsicGxhY2Vob2xkZXIiOiJlbXB0eSJ9fQ.123")
