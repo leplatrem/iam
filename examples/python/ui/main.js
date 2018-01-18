@@ -32,7 +32,7 @@ function main() {
 class APIClient {
   constructor(auth) {
     const headers = {
-      'Authorization': `${auth.tokenType} ${auth.idToken}`,
+      'Authorization': `${auth.tokenType} ${auth.accessToken}`,
     };
     this.options = {headers};
   }
