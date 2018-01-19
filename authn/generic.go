@@ -64,7 +64,7 @@ func (v *jwtGenericValidator) config() (*openIDConfiguration, error) {
 		v.cache.Set(cacheKey, data)
 	}
 
-	// XXX: since cache stores bytes, we parse it again at every usage :( ?
+	// Since cache stores bytes, we parse it again at every usage :( ?
 	config := &openIDConfiguration{}
 	err = json.Unmarshal(data, config)
 	if err != nil {
@@ -146,10 +146,12 @@ func (v *jwtGenericValidator) ValidateRequest(r *http.Request) (*Claims, error) 
 		return nil, errors.Wrap(err, "failed to read JWT payload")
 	}
 
-	// 5. Validate issuer, claims and expiration.
-	// Will check audience only when request comes in, leave empty for now.
-	audience := []string{}
-	expected := jwt.Expected{Issuer: v.Issuer, Audience: audience}
+	// 5. Validate issuer, audience, claims and expiration.
+	origin := r.Header.Get("Origin")
+	expected := jwt.Expected{
+		Issuer:   v.Issuer,
+		Audience: jwt.Audience{origin},
+	}
 	expected = expected.WithTime(time.Now())
 	err = jwtClaims.Validate(expected)
 	if err != nil {

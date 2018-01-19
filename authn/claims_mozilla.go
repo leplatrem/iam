@@ -8,11 +8,10 @@ import (
 // mozillaClaims is a specific struct to extract emails and groups from
 // the JWT using Mozilla specific attributes.
 type mozillaClaims struct {
-	Subject  string       `json:"sub"`
-	Audience jwt.Audience `json:"aud"`
-	Email    string       `json:"email"`
-	Emails   []string     `json:"https://sso.mozilla.com/claim/emails"`
-	Groups   []string     `json:"https://sso.mozilla.com/claim/groups"`
+	Subject string   `json:"sub"`
+	Email   string   `json:"email"`
+	Emails  []string `json:"https://sso.mozilla.com/claim/emails"`
+	Groups  []string `json:"https://sso.mozilla.com/claim/groups"`
 }
 
 type mozillaClaimExtractor struct{}
@@ -32,10 +31,9 @@ func (*mozillaClaimExtractor) Extract(token *jwt.JSONWebToken, key *jose.JSONWeb
 	}
 
 	claims := Claims{
-		Subject:  mozclaims.Subject,
-		Audience: mozclaims.Audience,
-		Email:    email,
-		Groups:   mozclaims.Groups,
+		Subject: mozclaims.Subject,
+		Email:   email,
+		Groups:  mozclaims.Groups,
 	}
 
 	return &claims, nil

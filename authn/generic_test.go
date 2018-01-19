@@ -122,8 +122,14 @@ func TestValidateRequest(t *testing.T) {
 	require.NotNil(t, err)
 	assert.Contains(t, err.Error(), "error in cryptographic primitive")
 
-	// Invalid claims
+	// Invalid audience
 	r.Header.Set("Authorization", "Bearer "+goodJWT)
+	_, err = validator.ValidateRequest(r)
+	require.NotNil(t, err)
+	assert.Contains(t, err.Error(), "validation failed, invalid audience claim")
+
+	// Valid claims, expired token.
+	r.Header.Set("Origin", "SLocf7Sa1ibd5GNJMMqO539g7cKvWBOI")
 	_, err = validator.ValidateRequest(r)
 	require.NotNil(t, err)
 	assert.Contains(t, err.Error(), "validation failed, token is expired")

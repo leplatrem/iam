@@ -42,10 +42,9 @@ func TestJWTMiddleware(t *testing.T) {
 
 	// Extract claims is ran on every request.
 	claims := &authn.Claims{
-		Subject:  "ldap|user",
-		Audience: []string{audience},
-		Email:    "user@corp.com",
-		Groups:   []string{"Employee", "Admins"},
+		Subject: "ldap|user",
+		Email:   "user@corp.com",
+		Groups:  []string{"Employee", "Admins"},
 	}
 	v.On("ValidateRequest", mock.Anything).Return(claims, nil)
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
@@ -92,8 +91,7 @@ func TestJWTMiddleware(t *testing.T) {
 
 	// Missing attributes in JWT Payload
 	claims = &authn.Claims{
-		Subject:  "ldap|user",
-		Audience: []string{audience},
+		Subject: "ldap|user",
 	}
 	v = &TestValidator{}
 	v.On("ValidateRequest", mock.Anything).Return(claims, nil)
@@ -104,19 +102,4 @@ func TestJWTMiddleware(t *testing.T) {
 	handler(c)
 	principals, _ = c.Get(PrincipalsContextKey)
 	assert.Equal(t, Principals{"userid:ldap|user"}, principals)
-
-	// Audience mismatch origin
-	claims = &authn.Claims{
-		Subject:  "ldap|user",
-		Audience: []string{"http://some.other.api"},
-	}
-	v = &TestValidator{}
-	v.On("ValidateRequest", mock.Anything).Return(claims, nil)
-	doorman.jwtValidators[audience] = v
-	c, _ = gin.CreateTestContext(httptest.NewRecorder())
-	c.Request, _ = http.NewRequest("GET", "/get", nil)
-	c.Request.Header.Set("Origin", audience)
-	handler(c)
-	_, ok = c.Get(PrincipalsContextKey)
-	assert.False(t, ok)
 }

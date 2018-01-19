@@ -7,10 +7,9 @@ import (
 
 // Claims is the set of information we extract from the JWT payload.
 type Claims struct {
-	Subject  string       `json:"sub,omitempty"`
-	Audience jwt.Audience `json:"aud,omitempty"`
-	Email    string       `json:"email,omitempty"`
-	Groups   []string     `json:"groups,omitempty"`
+	Subject string   `json:"sub,omitempty"`
+	Email   string   `json:"email,omitempty"`
+	Groups  []string `json:"groups,omitempty"`
 }
 
 // claimExtractor is in charge of extracting meaningful info from JWT payload.
