@@ -10,6 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mozilla/doorman/authn"
 )
 
 // TestMain defined in doorman_test.go
@@ -23,9 +25,9 @@ func (v *TestValidator) Initialize() error {
 	args := v.Called()
 	return args.Error(0)
 }
-func (v *TestValidator) ValidateRequest(request *http.Request) (*Claims, error) {
+func (v *TestValidator) ValidateRequest(request *http.Request) (*authn.Claims, error) {
 	args := v.Called(request)
-	return args.Get(0).(*Claims), args.Error(1)
+	return args.Get(0).(*authn.Claims), args.Error(1)
 }
 
 func TestJWTMiddleware(t *testing.T) {
@@ -39,7 +41,7 @@ func TestJWTMiddleware(t *testing.T) {
 	doorman.jwtValidators[audience] = v
 
 	// Extract claims is ran on every request.
-	claims := &Claims{
+	claims := &authn.Claims{
 		Subject:  "ldap|user",
 		Audience: []string{audience},
 		Email:    "user@corp.com",
@@ -89,7 +91,7 @@ func TestJWTMiddleware(t *testing.T) {
 	assert.False(t, ok)
 
 	// Missing attributes in JWT Payload
-	claims = &Claims{
+	claims = &authn.Claims{
 		Subject:  "ldap|user",
 		Audience: []string{audience},
 	}
@@ -104,7 +106,7 @@ func TestJWTMiddleware(t *testing.T) {
 	assert.Equal(t, Principals{"userid:ldap|user"}, principals)
 
 	// Audience mismatch origin
-	claims = &Claims{
+	claims = &authn.Claims{
 		Subject:  "ldap|user",
 		Audience: []string{"http://some.other.api"},
 	}

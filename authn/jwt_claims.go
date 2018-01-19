@@ -1,4 +1,4 @@
-package doorman
+package authn
 
 import (
 	jose "gopkg.in/square/go-jose.v2"

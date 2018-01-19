@@ -1,4 +1,4 @@
-package doorman
+package authn
 
 import (
 	"testing"

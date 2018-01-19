@@ -2,6 +2,8 @@ package doorman
 
 import (
 	"fmt"
+
+	"github.com/mozilla/doorman/authn"
 )
 
 // Tags map tag names to principals.
@@ -97,7 +99,7 @@ type Doorman interface {
 	// LoadPolicies is responsible for loading the services configuration into memory.
 	LoadPolicies(configs ServicesConfig) error
 	// JWTValidator
-	JWTValidator(service string) (JWTValidator, error)
+	JWTValidator(service string) (authn.JWTValidator, error)
 	// ExpandPrincipals looks up and add extra principals to the ones specified.
 	ExpandPrincipals(service string, principals Principals) Principals
 	// IsAllowed is responsible for deciding if the specified authorization is allowed for the specified service.

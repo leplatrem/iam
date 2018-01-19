@@ -5,6 +5,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/mozilla/doorman/authn"
 )
 
 // DoormanContextKey is the Gin context key to obtain the *Doorman instance.
@@ -76,7 +78,7 @@ func VerifyJWTMiddleware(doorman Doorman) gin.HandlerFunc {
 	}
 }
 
-func extractPrincipals(claims *Claims) Principals {
+func extractPrincipals(claims *authn.Claims) Principals {
 	// Extract principals from JWT
 	var principals Principals
 	userid := fmt.Sprintf("userid:%s", claims.Subject)

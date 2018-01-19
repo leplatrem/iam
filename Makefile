@@ -3,8 +3,8 @@ GO_DEP := $(GOPATH)/bin/dep
 GO_BINDATA := $(GOPATH)/bin/go-bindata
 GO_PACKAGE := $(GOPATH)/src/github.com/mozilla/doorman
 DATA_FILES := ./utilities/openapi.yaml ./utilities/contribute.yaml
-SRC := *.go ./config/*.go ./utilities/*.go ./doorman/*.go
-PACKAGES := ./ ./config/ ./utilities/ ./doorman/
+SRC := *.go ./config/*.go ./utilities/*.go ./authn/*.go ./doorman/*.go
+PACKAGES := ./ ./config/ ./utilities/ ./authn/ ./doorman/
 
 main: vendor utilities/bindata.go $(SRC) $(GO_PACKAGE)
 	CGO_ENABLED=0 go build -o main *.go

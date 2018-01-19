@@ -7,6 +7,8 @@ import (
 	"github.com/ory/ladon"
 	manager "github.com/ory/ladon/manager/memory"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/mozilla/doorman/authn"
 )
 
 const maxInt int64 = 1<<63 - 1
@@ -17,7 +19,7 @@ type LadonDoorman struct {
 
 	services      map[string]ServiceConfig
 	ladons        map[string]*ladon.Ladon
-	jwtValidators map[string]JWTValidator
+	jwtValidators map[string]authn.JWTValidator
 }
 
 // NewDefaultLadon instantiates a new doorman.
@@ -25,7 +27,7 @@ func NewDefaultLadon() *LadonDoorman {
 	w := &LadonDoorman{
 		services:      map[string]ServiceConfig{},
 		ladons:        map[string]*ladon.Ladon{},
-		jwtValidators: map[string]JWTValidator{},
+		jwtValidators: map[string]authn.JWTValidator{},
 	}
 	return w
 }
@@ -41,7 +43,7 @@ func (doorman *LadonDoorman) auditLogger() *auditLogger {
 func (doorman *LadonDoorman) LoadPolicies(configs ServicesConfig) error {
 	// First, load each configuration file.
 	newLadons := map[string]*ladon.Ladon{}
-	newJWTValidators := map[string]JWTValidator{}
+	newJWTValidators := map[string]authn.JWTValidator{}
 	newConfigs := map[string]ServiceConfig{}
 
 	for _, config := range configs {
@@ -52,7 +54,7 @@ func (doorman *LadonDoorman) LoadPolicies(configs ServicesConfig) error {
 
 		if config.JWTIssuer != "" {
 			log.Infof("Enable JWT validation from %q", config.JWTIssuer)
-			v, err := NewJWTValidator(config.JWTIssuer)
+			v, err := authn.NewJWTValidator(config.JWTIssuer)
 			if err != nil {
 				return err
 			}
@@ -109,7 +111,7 @@ func (doorman *LadonDoorman) LoadPolicies(configs ServicesConfig) error {
 }
 
 // JWTValidator returns the JWT validator for the specified service.
-func (doorman *LadonDoorman) JWTValidator(service string) (JWTValidator, error) {
+func (doorman *LadonDoorman) JWTValidator(service string) (authn.JWTValidator, error) {
 	v, ok := doorman.jwtValidators[service]
 	if !ok {
 		return nil, fmt.Errorf("unknown service %q", service)
