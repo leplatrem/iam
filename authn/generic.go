@@ -8,47 +8,48 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/allegro/bigcache"
+	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 	jose "gopkg.in/square/go-jose.v2"
 	jwt "gopkg.in/square/go-jose.v2/jwt"
-	log "github.com/sirupsen/logrus"
 )
 
-// OpenIDConfiguration is the OpenID provider metadata about endpoints etc.
-type OpenIDConfiguration struct {
+// openIDConfiguration is the OpenID provider metadata about URIs, endpoints etc.
+type openIDConfiguration struct {
 	JWKSUri string `json:"jwks_uri"`
 }
 
-// JWKS are the JWT public keys
-type JWKS struct {
+// publicKeys are the JWT public keys
+type publicKeys struct {
 	Keys []jose.JSONWebKey `json:"keys"`
 }
 
 type jwtGenericValidator struct {
 	Issuer             string
-	ClaimExtractor     ClaimExtractor
 	SignatureAlgorithm jose.SignatureAlgorithm
+	ClaimExtractor     claimExtractor
 	cache              *bigcache.BigCache
 }
 
-// newJWTGenericValidator returns a generic JWT validator of this issuer.
+// newJWTGenericValidator returns a new instance of a generic JWT validator
+// for the specified issuer.
 func newJWTGenericValidator(issuer string) *jwtGenericValidator {
 	cache, _ := bigcache.NewBigCache(bigcache.DefaultConfig(1 * time.Hour))
 
-	var extractor ClaimExtractor = defaultExtractor
+	var extractor claimExtractor = defaultExtractor
 	if strings.Contains(issuer, "mozilla.auth0.com") {
 		extractor = mozillaExtractor
 	}
 	return &jwtGenericValidator{
 		Issuer:             issuer,
-		ClaimExtractor:     extractor,
 		SignatureAlgorithm: jose.RS256,
+		ClaimExtractor:     extractor,
 		cache:              cache,
 	}
 }
 
-func (v *jwtGenericValidator) config() (*OpenIDConfiguration, error) {
+func (v *jwtGenericValidator) config() (*openIDConfiguration, error) {
 	cacheKey := "config:" + v.Issuer
 	data, err := v.cache.Get(cacheKey)
 
@@ -64,7 +65,7 @@ func (v *jwtGenericValidator) config() (*OpenIDConfiguration, error) {
 	}
 
 	// XXX: since cache stores bytes, we parse it again at every usage :( ?
-	config := &OpenIDConfiguration{}
+	config := &openIDConfiguration{}
 	err = json.Unmarshal(data, config)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse OpenID configuration")
@@ -75,7 +76,7 @@ func (v *jwtGenericValidator) config() (*OpenIDConfiguration, error) {
 	return config, nil
 }
 
-func (v *jwtGenericValidator) jwks() (*JWKS, error) {
+func (v *jwtGenericValidator) jwks() (*publicKeys, error) {
 	cacheKey := "jwks:" + v.Issuer
 	data, err := v.cache.Get(cacheKey)
 
@@ -94,8 +95,7 @@ func (v *jwtGenericValidator) jwks() (*JWKS, error) {
 		v.cache.Set(cacheKey, data)
 	}
 
-	// XXX: since cache stores bytes, we parse it again at every usage :( ?
-	var jwks = &JWKS{}
+	var jwks = &publicKeys{}
 	err = json.Unmarshal(data, jwks)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse JWKS")

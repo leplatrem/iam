@@ -5,8 +5,9 @@ import (
 	jwt "gopkg.in/square/go-jose.v2/jwt"
 )
 
-// MozillaClaims uses specific attributes for emails and groups
-type MozillaClaims struct {
+// mozillaClaims is a specific struct to extract emails and groups from
+// the JWT using Mozilla specific attributes.
+type mozillaClaims struct {
 	Subject  string       `json:"sub"`
 	Audience jwt.Audience `json:"aud"`
 	Email    string       `json:"email"`
@@ -17,13 +18,14 @@ type MozillaClaims struct {
 type mozillaClaimExtractor struct{}
 
 func (*mozillaClaimExtractor) Extract(token *jwt.JSONWebToken, key *jose.JSONWebKey) (*Claims, error) {
-	mozclaims := MozillaClaims{}
+	mozclaims := mozillaClaims{}
 	err := token.Claims(key, &mozclaims)
 	if err != nil {
 		return nil, err
 	}
 
-	// In case the JWT was not requested with the profile or email scope.
+	// In case the JWT was not requested with the `profile` or `email` scope,
+	// we may not obtain the email(s).
 	email := mozclaims.Email
 	if email == "" && len(mozclaims.Emails) > 0 {
 		email = mozclaims.Emails[0]

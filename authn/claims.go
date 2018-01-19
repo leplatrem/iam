@@ -13,8 +13,8 @@ type Claims struct {
 	Groups   []string     `json:"groups,omitempty"`
 }
 
-// ClaimExtractor is in charge of extracting meaningful info from JWT payload.
-type ClaimExtractor interface {
+// claimExtractor is in charge of extracting meaningful info from JWT payload.
+type claimExtractor interface {
 	Extract(*jwt.JSONWebToken, *jose.JSONWebKey) (*Claims, error)
 }
 
