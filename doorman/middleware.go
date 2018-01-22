@@ -53,8 +53,8 @@ func VerifyJWTMiddleware(doorman Doorman) gin.HandlerFunc {
 			return
 		}
 
-		// Verify the JWT
-		claims, err := validator.ValidateRequest(c.Request)
+		// Validate authentication.
+		userInfo, err := validator.ValidateRequest(c.Request)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"message": err.Error(),
@@ -62,7 +62,7 @@ func VerifyJWTMiddleware(doorman Doorman) gin.HandlerFunc {
 			return
 		}
 
-		principals := extractPrincipals(claims)
+		principals := extractPrincipals(userInfo)
 
 		c.Set(PrincipalsContextKey, principals)
 
@@ -70,20 +70,20 @@ func VerifyJWTMiddleware(doorman Doorman) gin.HandlerFunc {
 	}
 }
 
-func extractPrincipals(claims *authn.Claims) Principals {
+func extractPrincipals(userInfo *authn.UserInfo) Principals {
 	// Extract principals from JWT
 	var principals Principals
-	userid := fmt.Sprintf("userid:%s", claims.Subject)
+	userid := fmt.Sprintf("userid:%s", userInfo.ID)
 	principals = append(principals, userid)
 
 	// Main email (no alias)
-	if claims.Email != "" {
-		email := fmt.Sprintf("email:%s", claims.Email)
+	if userInfo.Email != "" {
+		email := fmt.Sprintf("email:%s", userInfo.Email)
 		principals = append(principals, email)
 	}
 
 	// Groups
-	for _, group := range claims.Groups {
+	for _, group := range userInfo.Groups {
 		prefixed := fmt.Sprintf("group:%s", group)
 		principals = append(principals, prefixed)
 	}

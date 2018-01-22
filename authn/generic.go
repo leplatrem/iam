@@ -15,8 +15,8 @@ import (
 	jwt "gopkg.in/square/go-jose.v2/jwt"
 )
 
-// CACHE_TTL is the cache duration for remote info like OpenID config or keys.
-const CACHE_TTL = 1 * time.Hour
+// CacheTTL is the cache duration for remote info like OpenID config or keys.
+const CacheTTL = 1 * time.Hour
 
 // openIDConfiguration is the OpenID provider metadata about URIs, endpoints etc.
 type openIDConfiguration struct {
@@ -29,12 +29,6 @@ type publicKeys struct {
 	Keys []jose.JSONWebKey `json:"keys"`
 }
 
-type UserInfo struct {
-	UserID string   `json:"sub"`
-	Email  string   `json:"email"`
-	Groups []string `json:"https://sso.mozilla.com/claim/groups"`
-}
-
 type jwtGenericValidator struct {
 	Issuer             string
 	SignatureAlgorithm jose.SignatureAlgorithm
@@ -45,7 +39,7 @@ type jwtGenericValidator struct {
 // newJWTGenericValidator returns a new instance of a generic JWT validator
 // for the specified issuer.
 func newJWTGenericValidator(issuer string) *jwtGenericValidator {
-	cache, _ := bigcache.NewBigCache(bigcache.DefaultConfig(CACHE_TTL))
+	cache, _ := bigcache.NewBigCache(bigcache.DefaultConfig(CacheTTL))
 
 	var extractor claimExtractor = defaultExtractor
 	if strings.Contains(issuer, "mozilla.auth0.com") {
@@ -67,7 +61,7 @@ func (v *jwtGenericValidator) config() (*openIDConfiguration, error) {
 	if err != nil {
 		uri := strings.TrimRight(v.Issuer, "/") + "/.well-known/openid-configuration"
 		log.Debugf("Fetch OpenID configuration from %s", uri)
-		data, err = downloadJSON(uri)
+		data, err = downloadJSON(uri, nil)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to fetch OpenID configuration")
 		}
@@ -98,7 +92,7 @@ func (v *jwtGenericValidator) jwks() (*publicKeys, error) {
 		}
 		uri := config.JWKSUri
 		log.Debugf("Fetch public keys from %s", uri)
-		data, err = downloadJSON(uri)
+		data, err = downloadJSON(uri, nil)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to fetch JWKS")
 		}
@@ -119,6 +113,13 @@ func (v *jwtGenericValidator) jwks() (*publicKeys, error) {
 
 func (v *jwtGenericValidator) FetchUserInfo(r *http.Request) (*UserInfo, error) {
 	authorizationHeader := r.Header.Get("Authorization")
+	if len(authorizationHeader) <= 7 || !strings.EqualFold(authorizationHeader[0:7], "BEARER ") {
+		return nil, fmt.Errorf("Missing Authorization header")
+	}
+	if strings.Count(authorizationHeader, ".") == 3 {
+		return nil, fmt.Errorf("Looks like JWT ID Token")
+	}
+
 	accessToken := authorizationHeader[7:]
 	cacheKey := "userinfo:" + accessToken
 
@@ -131,35 +132,25 @@ func (v *jwtGenericValidator) FetchUserInfo(r *http.Request) (*UserInfo, error) 
 		}
 		uri := config.UserInfoEndpoint
 		log.Debugf("Fetch user info from %s", uri)
-		client := &http.Client{}
-		req, _ := http.NewRequest("GET", uri, nil)
-		req.Header.Add("Authorization", authorizationHeader)
-		response, err := client.Do(req)
-		defer response.Body.Close()
-		data, err = ioutil.ReadAll(response.Body)
-		if err != nil {
-			return nil, errors.Wrap(err, "could not download JSON")
-		}
+		data, err = downloadJSON(uri, http.Header{
+			"Authorization": []string{authorizationHeader},
+		})
 		v.cache.Set(cacheKey, data)
 	}
 
-	var userInfo = &UserInfo{}
-	err = json.Unmarshal(data, userInfo)
+	userinfo, err := v.ClaimExtractor.Extract(data)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse userinfo")
+		return nil, err
 	}
-	return userInfo, nil
+
+	return userinfo, nil
 }
 
-func (v *jwtGenericValidator) ValidateRequest(r *http.Request) (*Claims, error) {
+func (v *jwtGenericValidator) ValidateRequest(r *http.Request) (*UserInfo, error) {
 	// Mega-WIP
-	ui, err := v.FetchUserInfo(r)
+	userinfo, err := v.FetchUserInfo(r)
 	if err == nil {
-		return &Claims{
-			Subject: ui.UserID,
-			Email:   ui.Email,
-			Groups:  ui.Groups,
-		}, nil
+		return userinfo, nil
 	}
 
 	// 1. Extract JWT from request headers
@@ -212,12 +203,23 @@ func (v *jwtGenericValidator) ValidateRequest(r *http.Request) (*Claims, error) 
 		return nil, errors.Wrap(err, "invalid JWT claims")
 	}
 
-	// 6. Extract relevant claims for Doorman.
-	claims, err := v.ClaimExtractor.Extract(token, key)
+	// 6. Decrypt/verify JWT payload to basic JSON.
+	var payload map[string]interface{}
+	err = token.Claims(key, &payload)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to extract JWT claims")
+		return nil, errors.Wrap(err, "failed to decrypt/verify JWT claims")
 	}
-	return claims, nil
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to convert JWT payload to JSON")
+	}
+
+	// 6. Extract relevant claims for Doorman.
+	userinfo, err = v.ClaimExtractor.Extract(data)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to extract userinfo from JWT payload")
+	}
+	return userinfo, nil
 }
 
 // fromHeader reads the authorization header value and parses it as JSON Web Token.
@@ -229,18 +231,27 @@ func fromHeader(r *http.Request) (*jwt.JSONWebToken, error) {
 	return nil, fmt.Errorf("token not found")
 }
 
-func downloadJSON(uri string) ([]byte, error) {
-	response, err := http.Get(uri)
+func downloadJSON(uri string, header http.Header) ([]byte, error) {
+	client := &http.Client{}
+	req, _ := http.NewRequest("GET", uri, nil)
+	if header != nil {
+		req.Header = header
+	}
+	req.Header.Add("Accept", "application/json")
+	response, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "could not read JSON")
 	}
 	if contentHeader := response.Header.Get("Content-Type"); !strings.HasPrefix(contentHeader, "application/json") {
 		return nil, fmt.Errorf("%s has not a JSON content-type", uri)
 	}
+	if response.StatusCode != http.StatusOK {
+		return nil, errors.Wrap(err, fmt.Sprintf("server response error (%s)", response.Status))
+	}
 	defer response.Body.Close()
 	data, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not download JSON")
+		return nil, errors.Wrap(err, "could not read JSON response")
 	}
 	return data, nil
 }

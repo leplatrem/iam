@@ -11,9 +11,16 @@ import (
 	"strings"
 )
 
+// UserInfo contains the necessary attributes used in Doorman policies.
+type UserInfo struct {
+	ID     string
+	Email  string
+	Groups []string
+}
+
 // JWTValidator is the interface in charge of extracting JWT claims from request.
 type JWTValidator interface {
-	ValidateRequest(*http.Request) (*Claims, error)
+	ValidateRequest(*http.Request) (*UserInfo, error)
 }
 
 var jwtValidators map[string]JWTValidator

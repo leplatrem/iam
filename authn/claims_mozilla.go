@@ -1,12 +1,13 @@
 package authn
 
 import (
-	jose "gopkg.in/square/go-jose.v2"
-	jwt "gopkg.in/square/go-jose.v2/jwt"
+	"encoding/json"
+
+	"github.com/pkg/errors"
 )
 
 // mozillaClaims is a specific struct to extract emails and groups from
-// the JWT using Mozilla specific attributes.
+// the JWT or the profile info using Mozilla specific attributes.
 type mozillaClaims struct {
 	Subject string   `json:"sub"`
 	Email   string   `json:"email"`
@@ -16,27 +17,25 @@ type mozillaClaims struct {
 
 type mozillaClaimExtractor struct{}
 
-func (*mozillaClaimExtractor) Extract(token *jwt.JSONWebToken, key *jose.JSONWebKey) (*Claims, error) {
-	mozclaims := mozillaClaims{}
-	err := token.Claims(key, &mozclaims)
+func (*mozillaClaimExtractor) Extract(payload []byte) (*UserInfo, error) {
+	var userInfo = &mozillaClaims{}
+	err := json.Unmarshal(payload, userInfo)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to parse Mozilla user info from payload")
 	}
 
 	// In case the JWT was not requested with the `profile` or `email` scope,
 	// we may not obtain the email(s).
-	email := mozclaims.Email
-	if email == "" && len(mozclaims.Emails) > 0 {
-		email = mozclaims.Emails[0]
+	email := userInfo.Email
+	if email == "" && len(userInfo.Emails) > 0 {
+		email = userInfo.Emails[0]
 	}
 
-	claims := Claims{
-		Subject: mozclaims.Subject,
-		Email:   email,
-		Groups:  mozclaims.Groups,
-	}
-
-	return &claims, nil
+	return &UserInfo{
+		ID:     userInfo.Subject,
+		Email:  email,
+		Groups: userInfo.Groups,
+	}, nil
 }
 
 var mozillaExtractor = &mozillaClaimExtractor{}

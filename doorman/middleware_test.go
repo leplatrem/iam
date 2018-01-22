@@ -25,9 +25,9 @@ func (v *TestValidator) Initialize() error {
 	args := v.Called()
 	return args.Error(0)
 }
-func (v *TestValidator) ValidateRequest(request *http.Request) (*authn.Claims, error) {
+func (v *TestValidator) ValidateRequest(request *http.Request) (*authn.UserInfo, error) {
 	args := v.Called(request)
-	return args.Get(0).(*authn.Claims), args.Error(1)
+	return args.Get(0).(*authn.UserInfo), args.Error(1)
 }
 
 func TestJWTMiddleware(t *testing.T) {
@@ -41,10 +41,10 @@ func TestJWTMiddleware(t *testing.T) {
 	doorman.jwtValidators[audience] = v
 
 	// Extract claims is ran on every request.
-	claims := &authn.Claims{
-		Subject: "ldap|user",
-		Email:   "user@corp.com",
-		Groups:  []string{"Employee", "Admins"},
+	claims := &authn.UserInfo{
+		ID:     "ldap|user",
+		Email:  "user@corp.com",
+		Groups: []string{"Employee", "Admins"},
 	}
 	v.On("ValidateRequest", mock.Anything).Return(claims, nil)
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
@@ -90,8 +90,8 @@ func TestJWTMiddleware(t *testing.T) {
 	assert.False(t, ok)
 
 	// Missing attributes in JWT Payload
-	claims = &authn.Claims{
-		Subject: "ldap|user",
+	claims = &authn.UserInfo{
+		ID: "ldap|user",
 	}
 	v = &TestValidator{}
 	v.On("ValidateRequest", mock.Anything).Return(claims, nil)
