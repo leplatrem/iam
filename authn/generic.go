@@ -111,16 +111,7 @@ func (v *jwtGenericValidator) jwks() (*publicKeys, error) {
 	return jwks, nil
 }
 
-func (v *jwtGenericValidator) FetchUserInfo(r *http.Request) (*UserInfo, error) {
-	authorizationHeader := r.Header.Get("Authorization")
-	if len(authorizationHeader) <= 7 || !strings.EqualFold(authorizationHeader[0:7], "BEARER ") {
-		return nil, fmt.Errorf("Missing Authorization header")
-	}
-	if strings.Count(authorizationHeader, ".") == 3 {
-		return nil, fmt.Errorf("Looks like JWT ID Token")
-	}
-
-	accessToken := authorizationHeader[7:]
+func (v *jwtGenericValidator) FetchUserInfo(accessToken string) (*UserInfo, error) {
 	cacheKey := "userinfo:" + accessToken
 
 	data, err := v.cache.Get(cacheKey)
@@ -133,7 +124,7 @@ func (v *jwtGenericValidator) FetchUserInfo(r *http.Request) (*UserInfo, error) 
 		uri := config.UserInfoEndpoint
 		log.Debugf("Fetch user info from %s", uri)
 		data, err = downloadJSON(uri, http.Header{
-			"Authorization": []string{authorizationHeader},
+			"Authorization": []string{"Bearer " + accessToken},
 		})
 		v.cache.Set(cacheKey, data)
 	}
@@ -147,14 +138,21 @@ func (v *jwtGenericValidator) FetchUserInfo(r *http.Request) (*UserInfo, error) 
 }
 
 func (v *jwtGenericValidator) ValidateRequest(r *http.Request) (*UserInfo, error) {
-	// Mega-WIP
-	userinfo, err := v.FetchUserInfo(r)
-	if err == nil {
-		return userinfo, nil
+	headerValue, err := fromHeader(r)
+	if err != nil {
+		return nil, err
+	}
+
+	if strings.Count(headerValue, ".") == 0 {
+		// No dots, could be an access token!
+		userinfo, err := v.FetchUserInfo(headerValue)
+		if err == nil {
+			return userinfo, nil
+		}
 	}
 
 	// 1. Extract JWT from request headers
-	token, err := fromHeader(r)
+	token, err := jwt.ParseSigned(headerValue)
 	if err != nil {
 		return nil, err
 	}
@@ -215,20 +213,19 @@ func (v *jwtGenericValidator) ValidateRequest(r *http.Request) (*UserInfo, error
 	}
 
 	// 6. Extract relevant claims for Doorman.
-	userinfo, err = v.ClaimExtractor.Extract(data)
+	userinfo, err := v.ClaimExtractor.Extract(data)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to extract userinfo from JWT payload")
 	}
 	return userinfo, nil
 }
 
-// fromHeader reads the authorization header value and parses it as JSON Web Token.
-func fromHeader(r *http.Request) (*jwt.JSONWebToken, error) {
+// fromHeader reads the authorization header value.
+func fromHeader(r *http.Request) (string, error) {
 	if authorizationHeader := r.Header.Get("Authorization"); len(authorizationHeader) > 7 && strings.EqualFold(authorizationHeader[0:7], "BEARER ") {
-		raw := []byte(authorizationHeader[7:])
-		return jwt.ParseSigned(string(raw))
+		return authorizationHeader[7:], nil
 	}
-	return nil, fmt.Errorf("token not found")
+	return "", fmt.Errorf("token not found")
 }
 
 func downloadJSON(uri string, header http.Header) ([]byte, error) {

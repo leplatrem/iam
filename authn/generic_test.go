@@ -79,9 +79,9 @@ func TestFromHeader(t *testing.T) {
 	assert.Equal(t, "token not found", err.Error())
 
 	r.Header.Set("Authorization", "Bearer abc zy")
-	_, err = fromHeader(r)
-	require.NotNil(t, err)
-	assert.Equal(t, "square/go-jose: compact JWS format must have three parts", err.Error())
+	v, err := fromHeader(r)
+	require.Nil(t, err)
+	assert.Equal(t, v, "abc zy")
 }
 
 func TestValidateRequest(t *testing.T) {
