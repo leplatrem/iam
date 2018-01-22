@@ -98,8 +98,8 @@ func (r *Request) Roles() Principals {
 type Doorman interface {
 	// LoadPolicies is responsible for loading the services configuration into memory.
 	LoadPolicies(configs ServicesConfig) error
-	// JWTValidator
-	JWTValidator(service string) (authn.JWTValidator, error)
+	// Authenticator by service
+	Authenticator(service string) (authn.Authenticator, error)
 	// ExpandPrincipals looks up and add extra principals to the ones specified.
 	ExpandPrincipals(service string, principals Principals) Principals
 	// IsAllowed is responsible for deciding if the specified authorization is allowed for the specified service.

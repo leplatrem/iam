@@ -5,17 +5,17 @@ import (
 	"github.com/pkg/errors"
 )
 
+// claimExtractor is in charge of extracting meaningful info from JWT payload.
+type claimExtractor interface {
+	Extract(payload []byte) (*UserInfo, error)
+}
+
 // claims is the set of information we extract from the JWT payload or the user
 // profile information.
 type claims struct {
 	Subject string   `json:"sub,omitempty"`
 	Email   string   `json:"email,omitempty"`
 	Groups  []string `json:"groups,omitempty"`
-}
-
-// claimExtractor is in charge of extracting meaningful info from JWT payload.
-type claimExtractor interface {
-	Extract(payload []byte) (*UserInfo, error)
 }
 
 type defaultClaimExtractor struct{}

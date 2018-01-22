@@ -29,23 +29,23 @@ type publicKeys struct {
 	Keys []jose.JSONWebKey `json:"keys"`
 }
 
-type jwtGenericValidator struct {
+type openIDAuthenticator struct {
 	Issuer             string
 	SignatureAlgorithm jose.SignatureAlgorithm
 	ClaimExtractor     claimExtractor
 	cache              *bigcache.BigCache
 }
 
-// newJWTGenericValidator returns a new instance of a generic JWT validator
+// newOpenIDAuthenticator returns a new instance of a generic JWT validator
 // for the specified issuer.
-func newJWTGenericValidator(issuer string) *jwtGenericValidator {
+func newOpenIDAuthenticator(issuer string) *openIDAuthenticator {
 	cache, _ := bigcache.NewBigCache(bigcache.DefaultConfig(CacheTTL))
 
 	var extractor claimExtractor = defaultExtractor
 	if strings.Contains(issuer, "mozilla.auth0.com") {
 		extractor = mozillaExtractor
 	}
-	return &jwtGenericValidator{
+	return &openIDAuthenticator{
 		Issuer:             issuer,
 		SignatureAlgorithm: jose.RS256,
 		ClaimExtractor:     extractor,
@@ -53,7 +53,7 @@ func newJWTGenericValidator(issuer string) *jwtGenericValidator {
 	}
 }
 
-func (v *jwtGenericValidator) config() (*openIDConfiguration, error) {
+func (v *openIDAuthenticator) config() (*openIDConfiguration, error) {
 	cacheKey := "config:" + v.Issuer
 	data, err := v.cache.Get(cacheKey)
 
@@ -80,7 +80,7 @@ func (v *jwtGenericValidator) config() (*openIDConfiguration, error) {
 	return config, nil
 }
 
-func (v *jwtGenericValidator) jwks() (*publicKeys, error) {
+func (v *openIDAuthenticator) jwks() (*publicKeys, error) {
 	cacheKey := "jwks:" + v.Issuer
 	data, err := v.cache.Get(cacheKey)
 
@@ -111,7 +111,30 @@ func (v *jwtGenericValidator) jwks() (*publicKeys, error) {
 	return jwks, nil
 }
 
-func (v *jwtGenericValidator) FetchUserInfo(accessToken string) (*UserInfo, error) {
+func (v *openIDAuthenticator) ValidateRequest(r *http.Request) (*UserInfo, error) {
+	headerValue, err := fromHeader(r)
+	if err != nil {
+		return nil, err
+	}
+
+	if strings.Count(headerValue, ".") == 0 {
+		// No dots, could be an access token! Try to fetch user infos.
+		userinfo, err := v.FetchUserInfo(headerValue)
+		if err == nil {
+			return userinfo, nil
+		}
+	}
+
+	// Consider it an ID Token. It will fail if invalid.
+	audience := r.Header.Get("Origin")
+	userinfo, err := v.FromJWTPayload(headerValue, audience)
+	if err != nil {
+		return nil, err
+	}
+	return userinfo, nil
+}
+
+func (v *openIDAuthenticator) FetchUserInfo(accessToken string) (*UserInfo, error) {
 	cacheKey := "userinfo:" + accessToken
 
 	data, err := v.cache.Get(cacheKey)
@@ -137,22 +160,9 @@ func (v *jwtGenericValidator) FetchUserInfo(accessToken string) (*UserInfo, erro
 	return userinfo, nil
 }
 
-func (v *jwtGenericValidator) ValidateRequest(r *http.Request) (*UserInfo, error) {
-	headerValue, err := fromHeader(r)
-	if err != nil {
-		return nil, err
-	}
-
-	if strings.Count(headerValue, ".") == 0 {
-		// No dots, could be an access token!
-		userinfo, err := v.FetchUserInfo(headerValue)
-		if err == nil {
-			return userinfo, nil
-		}
-	}
-
-	// 1. Extract JWT from request headers
-	token, err := jwt.ParseSigned(headerValue)
+func (v *openIDAuthenticator) FromJWTPayload(idToken string, audience string) (*UserInfo, error) {
+	// 1. Instanciate JSON Web Token
+	token, err := jwt.ParseSigned(idToken)
 	if err != nil {
 		return nil, err
 	}
@@ -190,10 +200,9 @@ func (v *jwtGenericValidator) ValidateRequest(r *http.Request) (*UserInfo, error
 	}
 
 	// 5. Validate issuer, audience, claims and expiration.
-	origin := r.Header.Get("Origin")
 	expected := jwt.Expected{
 		Issuer:   v.Issuer,
-		Audience: jwt.Audience{origin},
+		Audience: jwt.Audience{audience},
 	}
 	expected = expected.WithTime(time.Now())
 	err = jwtClaims.Validate(expected)

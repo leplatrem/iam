@@ -10,30 +10,30 @@ import (
 
 func TestFetchOpenIDConfiguration(t *testing.T) {
 	// Not available
-	validator := newJWTGenericValidator("https://missing.com")
+	validator := newOpenIDAuthenticator("https://missing.com")
 	_, err := validator.config()
 	require.NotNil(t, err)
 	assert.Contains(t, err.Error(), "connection refused")
 	// Bad content-type
-	validator = newJWTGenericValidator("https://mozilla.org")
+	validator = newOpenIDAuthenticator("https://mozilla.org")
 	_, err = validator.config()
 	require.NotNil(t, err)
 	assert.Contains(t, err.Error(), "has not a JSON content-type")
 	// Bad JSON
-	validator = newJWTGenericValidator("https://mozilla.org")
+	validator = newOpenIDAuthenticator("https://mozilla.org")
 	validator.cache.Set("config:https://mozilla.org", []byte("<html>"))
 	_, err = validator.config()
 	require.NotNil(t, err)
 	assert.Contains(t, err.Error(), "invalid character '<'")
 	// Good one
-	validator = newJWTGenericValidator("https://auth.mozilla.auth0.com/")
+	validator = newOpenIDAuthenticator("https://auth.mozilla.auth0.com/")
 	config, err := validator.config()
 	require.Nil(t, err)
 	assert.Contains(t, config.JWKSUri, ".well-known/jwks.json")
 }
 
 func TestDownloadKeys(t *testing.T) {
-	validator := newJWTGenericValidator("https://fake.com")
+	validator := newOpenIDAuthenticator("https://fake.com")
 	validator.cache.Set("config:https://fake.com",
 		[]byte("{\"jwks_uri\":\"http://z\"}"))
 	// Bad URL
@@ -60,7 +60,7 @@ func TestDownloadKeys(t *testing.T) {
 	assert.Contains(t, err.Error(), "no JWKS found")
 
 	// Good one
-	validator = newJWTGenericValidator("https://auth.mozilla.auth0.com")
+	validator = newOpenIDAuthenticator("https://auth.mozilla.auth0.com")
 	keys, err := validator.jwks()
 	require.Nil(t, err)
 	assert.Equal(t, 1, len(keys.Keys))
@@ -90,13 +90,13 @@ func TestValidateRequest(t *testing.T) {
 	r.Header.Set("Authorization", "Bearer "+goodJWT)
 
 	// Fail to fetch JWKS
-	validator := newJWTGenericValidator("https://perlinpimpin.com")
+	validator := newOpenIDAuthenticator("https://perlinpimpin.com")
 
 	_, err := validator.ValidateRequest(r)
 	require.NotNil(t, err)
 	assert.Contains(t, err.Error(), "no such host")
 
-	validator = newJWTGenericValidator("https://auth.mozilla.auth0.com/")
+	validator = newOpenIDAuthenticator("https://auth.mozilla.auth0.com/")
 
 	// Cannot extract JWT
 	r.Header.Set("Authorization", "Bearer abc")
@@ -137,7 +137,7 @@ func TestValidateRequest(t *testing.T) {
 
 func BenchmarkParseKeys(b *testing.B) {
 	// Warm cache.
-	validator := newJWTGenericValidator("https://auth.mozilla.auth0.com")
+	validator := newOpenIDAuthenticator("https://auth.mozilla.auth0.com")
 	validator.jwks()
 	b.ResetTimer()
 	// Bench parsing of cache bytes into keys objects.

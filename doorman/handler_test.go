@@ -47,9 +47,9 @@ func TestAllowedGet(t *testing.T) {
 	assert.Equal(t, w.Code, http.StatusNotFound)
 }
 
-func TestAllowedVerifiesJWT(t *testing.T) {
+func TestAllowedVerifiesAuthentication(t *testing.T) {
 	d := NewDefaultLadon()
-	// Will initialize JWT validator (ie. download public keys)
+	// Will initialize an authenticator (ie. download public keys)
 	d.LoadPolicies(ServicesConfig{
 		ServiceConfig{
 			Service:   "https://sample.yaml",
@@ -98,7 +98,7 @@ func TestAllowedHandlerBadRequest(t *testing.T) {
 	json.Unmarshal(w.Body.Bytes(), &errResp)
 	assert.Contains(t, errResp.Message, "invalid character ';'")
 
-	// Missing principals when JWT middleware not enabled.
+	// Missing principals when AuthnMiddleware not enabled.
 	w = httptest.NewRecorder()
 	c, _ = gin.CreateTestContext(w)
 
@@ -111,11 +111,11 @@ func TestAllowedHandlerBadRequest(t *testing.T) {
 
 	doorman := sampleDoorman()
 
-	// Posted principals with JWT middleware enabled.
+	// Posted principals with AuthnMiddleware enabled.
 	w = httptest.NewRecorder()
 	c, _ = gin.CreateTestContext(w)
 	c.Set(DoormanContextKey, doorman)
-	c.Set(PrincipalsContextKey, Principals{"userid:maria"}) // Simulate JWT middleware.
+	c.Set(PrincipalsContextKey, Principals{"userid:maria"}) // Simulate authn middleware.
 	authzRequest := Request{
 		Principals: Principals{"userid:superuser"},
 	}
@@ -125,7 +125,7 @@ func TestAllowedHandlerBadRequest(t *testing.T) {
 	allowedHandler(c)
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 	json.Unmarshal(w.Body.Bytes(), &errResp)
-	assert.Contains(t, errResp.Message, "cannot submit principals with JWT enabled")
+	assert.Contains(t, errResp.Message, "cannot submit principals with authentication enabled")
 }
 
 func TestAllowedHandler(t *testing.T) {
@@ -137,7 +137,7 @@ func TestAllowedHandler(t *testing.T) {
 	doorman := sampleDoorman()
 	c.Set(DoormanContextKey, doorman)
 
-	// Using principals from context (JWT middleware)
+	// Using principals from context (AuthnMiddleware)
 	c.Set(PrincipalsContextKey, Principals{"userid:maria"})
 
 	authzRequest := Request{

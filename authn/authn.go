@@ -1,7 +1,9 @@
 // Package authn is in charge authenticating requests.
 
-// JWT validators will be instantiated per issuer, and OpenID configuration
-// and keys will be cached between requests.
+// Authenticators will be instantiated per identity provider URI.
+// Currently only OpenID is supported.
+//
+// OpenID configuration and keys will be cached.
 
 package authn
 
@@ -18,28 +20,30 @@ type UserInfo struct {
 	Groups []string
 }
 
-// JWTValidator is the interface in charge of extracting JWT claims from request.
-type JWTValidator interface {
+// Authenticator is in charge of authenticating requests.
+type Authenticator interface {
 	ValidateRequest(*http.Request) (*UserInfo, error)
 }
 
-var jwtValidators map[string]JWTValidator
+var authenticators map[string]Authenticator
 
 func init() {
-	jwtValidators = map[string]JWTValidator{}
+	authenticators = map[string]Authenticator{}
 }
 
-// NewJWTValidator instantiates or reuses an existing JWT validator for the specified issuer.
-func NewJWTValidator(issuer string) (JWTValidator, error) {
-	if !strings.HasPrefix(issuer, "https://") {
-		return nil, fmt.Errorf("issuer %q not supported or has bad format", issuer)
+// NewAuthenticator instantiates or reuses an existing one for the specified
+// identity provider.
+func NewAuthenticator(idP string) (Authenticator, error) {
+	if !strings.HasPrefix(idP, "https://") {
+		return nil, fmt.Errorf("Identity provider %q not supported or has bad format", idP)
 	}
 
-	// Reuse JWT validators instances among configs if they are for the same issuer.
-	v, ok := jwtValidators[issuer]
+	// Reuse authenticator instances.
+	v, ok := authenticators[idP]
 	if !ok {
-		v = newJWTGenericValidator(issuer)
-		jwtValidators[issuer] = v
+		// Only OpenID is currently supported.
+		v = newOpenIDAuthenticator(idP)
+		authenticators[idP] = v
 	}
 	return v, nil
 }

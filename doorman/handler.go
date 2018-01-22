@@ -11,7 +11,7 @@ func SetupRoutes(r *gin.Engine, doorman Doorman) {
 	r.Use(ContextMiddleware(doorman))
 
 	a := r.Group("")
-	a.Use(VerifyJWTMiddleware(doorman))
+	a.Use(AuthnMiddleware(doorman))
 	a.POST("/allowed", allowedHandler)
 }
 
@@ -31,17 +31,17 @@ func allowedHandler(c *gin.Context) {
 		return
 	}
 
-	// Is JWT verification enable for this service?
+	// Is authentication verification enable for this service?
 	// If disabled (like in tests), principals can be posted in JSON.
-	jwtPrincipals, ok := c.Get(PrincipalsContextKey)
+	principals, ok := c.Get(PrincipalsContextKey)
 	if ok {
 		if len(r.Principals) > 0 {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"message": "cannot submit principals with JWT enabled",
+				"message": "cannot submit principals with authentication enabled",
 			})
 			return
 		}
-		r.Principals = jwtPrincipals.(Principals)
+		r.Principals = principals.(Principals)
 	} else {
 		if len(r.Principals) == 0 {
 			c.JSON(http.StatusBadRequest, gin.H{

@@ -125,7 +125,7 @@ policies:
 
 In the example above, the userid `maria` or the members of the `admins` group are allowed to perform any action on any resource on the `https://api.service.org` service.
 
-Since in this case we didn't enable JWT verification, an authorization request specifies the `principals` and looks like this:
+Since in this case we didn't enable authentication, an authorization request specifies the `principals` and looks like this:
 
 ```
 curl -s -X POST http://localhost:8080/allowed \

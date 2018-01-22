@@ -9,7 +9,7 @@ class AuthZError(Exception):
 
 
 def allowed(doorman, service, *,
-            resource=None, action=None, jwt=None, principals=None, context=None):
+            resource=None, action=None, token=None, principals=None, context=None):
     doorman_url = doorman + "/allowed"
     payload = {
         "resource": resource,
@@ -19,7 +19,7 @@ def allowed(doorman, service, *,
     }
     body = json_dumps_ignore_none(payload)
     headers = {
-        "Authorization": jwt or '',
+        "Authorization": token or '',
         "Origin": service,
     }
     r = urllib.request.Request(doorman_url, data=body.encode("utf-8"), headers=headers)

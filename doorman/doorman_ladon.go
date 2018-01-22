@@ -17,17 +17,17 @@ const maxInt int64 = 1<<63 - 1
 type LadonDoorman struct {
 	_auditLogger *auditLogger
 
-	services      map[string]ServiceConfig
-	ladons        map[string]*ladon.Ladon
-	jwtValidators map[string]authn.JWTValidator
+	services       map[string]ServiceConfig
+	ladons         map[string]*ladon.Ladon
+	authenticators map[string]authn.Authenticator
 }
 
 // NewDefaultLadon instantiates a new doorman.
 func NewDefaultLadon() *LadonDoorman {
 	w := &LadonDoorman{
-		services:      map[string]ServiceConfig{},
-		ladons:        map[string]*ladon.Ladon{},
-		jwtValidators: map[string]authn.JWTValidator{},
+		services:       map[string]ServiceConfig{},
+		ladons:         map[string]*ladon.Ladon{},
+		authenticators: map[string]authn.Authenticator{},
 	}
 	return w
 }
@@ -43,7 +43,7 @@ func (doorman *LadonDoorman) auditLogger() *auditLogger {
 func (doorman *LadonDoorman) LoadPolicies(configs ServicesConfig) error {
 	// First, load each configuration file.
 	newLadons := map[string]*ladon.Ladon{}
-	newJWTValidators := map[string]authn.JWTValidator{}
+	newAuthenticators := map[string]authn.Authenticator{}
 	newConfigs := map[string]ServiceConfig{}
 
 	for _, config := range configs {
@@ -53,14 +53,14 @@ func (doorman *LadonDoorman) LoadPolicies(configs ServicesConfig) error {
 		}
 
 		if config.JWTIssuer != "" {
-			log.Infof("Enable JWT validation from %q", config.JWTIssuer)
-			v, err := authn.NewJWTValidator(config.JWTIssuer)
+			log.Infof("Enable authentication from %q", config.JWTIssuer)
+			v, err := authn.NewAuthenticator(config.JWTIssuer)
 			if err != nil {
 				return err
 			}
-			newJWTValidators[config.Service] = v
+			newAuthenticators[config.Service] = v
 		} else {
-			log.Warningf("No JWT verification for %q.", config.Service)
+			log.Warningf("No authentication enabled for %q.", config.Service)
 		}
 
 		newLadons[config.Service] = &ladon.Ladon{
@@ -106,13 +106,13 @@ func (doorman *LadonDoorman) LoadPolicies(configs ServicesConfig) error {
 	// Only if everything went well, replace existing services with new ones.
 	doorman.services = newConfigs
 	doorman.ladons = newLadons
-	doorman.jwtValidators = newJWTValidators
+	doorman.authenticators = newAuthenticators
 	return nil
 }
 
-// JWTValidator returns the JWT validator for the specified service.
-func (doorman *LadonDoorman) JWTValidator(service string) (authn.JWTValidator, error) {
-	v, ok := doorman.jwtValidators[service]
+// Authenticator returns the authenticator for the specified service or nil.
+func (doorman *LadonDoorman) Authenticator(service string) (authn.Authenticator, error) {
+	v, ok := doorman.authenticators[service]
 	if !ok {
 		return nil, fmt.Errorf("unknown service %q", service)
 	}

@@ -30,15 +30,15 @@ func (v *TestValidator) ValidateRequest(request *http.Request) (*authn.UserInfo,
 	return args.Get(0).(*authn.UserInfo), args.Error(1)
 }
 
-func TestJWTMiddleware(t *testing.T) {
+func TestAuthnMiddleware(t *testing.T) {
 	doorman := NewDefaultLadon()
-	handler := VerifyJWTMiddleware(doorman)
+	handler := AuthnMiddleware(doorman)
 
 	audience := "https://some.api.com"
 
 	// Associate a fake JWT validator to this issuer.
 	v := &TestValidator{}
-	doorman.jwtValidators[audience] = v
+	doorman.authenticators[audience] = v
 
 	// Extract claims is ran on every request.
 	claims := &authn.UserInfo{
@@ -80,8 +80,8 @@ func TestJWTMiddleware(t *testing.T) {
 	_, ok = c.Get(PrincipalsContextKey)
 	assert.False(t, ok)
 
-	// JWT not configured for this origin.
-	doorman.jwtValidators["https://open"] = nil
+	// Authentication not configured for this origin.
+	doorman.authenticators["https://open"] = nil
 
 	c.Request, _ = http.NewRequest("GET", "/get", nil)
 	c.Request.Header.Set("Origin", "https://open")
@@ -89,13 +89,13 @@ func TestJWTMiddleware(t *testing.T) {
 	_, ok = c.Get(PrincipalsContextKey)
 	assert.False(t, ok)
 
-	// Missing attributes in JWT Payload
+	// Userinfo are set as principals in request context.
 	claims = &authn.UserInfo{
 		ID: "ldap|user",
 	}
 	v = &TestValidator{}
 	v.On("ValidateRequest", mock.Anything).Return(claims, nil)
-	doorman.jwtValidators[audience] = v
+	doorman.authenticators[audience] = v
 	c, _ = gin.CreateTestContext(httptest.NewRecorder())
 	c.Request, _ = http.NewRequest("GET", "/get", nil)
 	c.Request.Header.Set("Origin", audience)

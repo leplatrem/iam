@@ -4,28 +4,27 @@ info:
   description: |
     Doorman is an **authorization micro-service** that allows to checks if an arbitrary subject is allowed to perform an action on a resource, based on a set of rules (policies).
 
-    ### Workflow with JWT
+    ### Workflow with OpenID
 
-    When the JWT issuer is configured for a service, a typical workflow is:
+    When the identity provider is configured for a service (*recommended*), a typical workflow is:
 
-    1. Users obtain JWT from an Identity Provider (eg. Auth0)
+    1. Users obtain an access token from an Identity Provider (eg. Auth0)
     1. They use it to call the service API endpoint
     1. The service posts an authorization request on *Doorman* to check if the user is allowed
     1. *Doorman* uses the `Origin` request header to select the set of policies
     1. *Doorman* builds a list of strings (principals) for this user, and matches the policies
 
-    *Doorman* will verify that the specified JSON Web Token (JWT) is valid.
-    The claimed audience in the token (`"aud"`) will be checked against the `Origin` request header.
+    *Doorman* will verify that the specified Access token (or ID token) is valid.
 
-    The authorization request *principals* will be built from the JWT payload:
+    The authorization request *principals* will be built from the user profile information:
 
     * `"sub"`: `userid:{}`
     * `"email"`: `email:{}` (*optional*)
     * `"groups"`: `group:{}, group:{}, ...` (*optional*)
 
-    ### Without JWT
+    ### Without OpenID
 
-    If the JWT issuer is not configured for a service, no authentication is required and the principals
+    If the identity provider is not configured for a service, no authentication is required and the principals
     are posted in the authorization body.
 
     A typical workflow in this case would be:
@@ -93,7 +92,8 @@ paths:
       description: |
         Are those `principals` allowed to perform this `action` on this `resource` in this `context`?
 
-        With JWT verification enabled, the principals are read from the JWT payload.
+        With OpenID enabled, the principals are either read from the Identity Provider user info endpoint or directly from the JSON Web Token payload
+        if an ID token is provided.
 
       operationId: "allowed"
       consumes:
@@ -107,13 +107,11 @@ paths:
           description: |
             The service identifier (eg. `https://api.service.org`). It must match one of the known service from the policies files.
 
-            With JWT verification enabled, the claimed audience in the JWT will be checked against the value of this header.
-
         - in: header
           name: Authorization
           type: string
           description: |
-            With JWT verification enabled, a valid JSON Web Token (JWT) must be provided in the `Authorization` request header.
+            With OpenID enabled, a valid Access token (or JSON Web ID Token) must be provided in the `Authorization` request header.
             (eg. `Bearer eyJ0eXAiOiJKV1QiLCJhbG...9USXpOalEzUXpV`)
 
         - in: body
@@ -128,7 +126,7 @@ paths:
             properties:
               principals:
                 description: |
-                  **Only with JWT verification disabled**
+                  **Only without OpenID**
 
                   Arbitrary list of strings (eg. `userid:alice`, `group:editors`).
 
@@ -173,9 +171,7 @@ paths:
           example:
             message: Missing `Origin` request header
         "401":
-          description: "JWT token is invalid."
-        "403":
-          description: "JWT claimed audience is invalid (authorization failed)."
+          description: "OpenID token is invalid."
         "200":
           description: "Return whether it is allowed or not."
           schema:

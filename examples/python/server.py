@@ -35,8 +35,8 @@ def authorized(**allowed_kw):
     def wrapped(f):
         @functools.wraps(f)
         def wrapper(*args, **kwargs):
-            jwt = request.headers.get("Authorization", None)
-            authz = allowed(jwt=jwt, **allowed_kw)
+            token = request.headers.get("Authorization", None)
+            authz = allowed(token=token, **allowed_kw)
             _app_ctx_stack.top.authz = authz
             return f(*args, **kwargs)
         return wrapper
@@ -69,7 +69,7 @@ def records():
 @cross_origin(headers=["Content-Type", "Authorization"])
 @cross_origin(headers=["Access-Control-Allow-Origin", "*"])
 def record(name):
-    jwt = request.headers.get("Authorization", None)
+    token = request.headers.get("Authorization", None)
 
     record, author = Records.read(name)
 
@@ -79,7 +79,7 @@ def record(name):
         action = "create" if record is None else "update"
 
     # Check if allowed to perform action (will raise AuthZError if not authorized)
-    authz = allowed(resource="record", action=action, jwt=jwt, context={"author": author})
+    authz = allowed(resource="record", action=action, token=token, context={"author": author})
 
     # Return 404 if allowed to read but unknown record.
     if record is None and request.method == "GET":

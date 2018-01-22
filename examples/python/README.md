@@ -4,7 +4,7 @@ A Web UI interacts with Auth0 and a Flask API:
 
 * Some views are protected by a Python decorator
 * The update view is protected by imperative code, where authors can only update their own records
-* The Flask API does not verify the JWT, it just passes it through
+* The Flask API does not verify the auth token, it just passes it through to Doorman
 
 ![](screenshot.png)
 

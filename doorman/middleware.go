@@ -23,8 +23,9 @@ func ContextMiddleware(doorman Doorman) gin.HandlerFunc {
 	}
 }
 
-// VerifyJWTMiddleware makes sure a valid JWT is provided.
-func VerifyJWTMiddleware(doorman Doorman) gin.HandlerFunc {
+// AuthnMiddleware relies on the authenticator if authentication was enabled
+// for the origin.
+func AuthnMiddleware(doorman Doorman) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// The service requesting must send its location. It will be compared
 		// with the services defined in policies files.
@@ -37,8 +38,8 @@ func VerifyJWTMiddleware(doorman Doorman) gin.HandlerFunc {
 			return
 		}
 
-		// Check if JWT verification was configured for this service.
-		validator, err := doorman.JWTValidator(origin)
+		// Check if authentication was configured for this service.
+		authenticator, err := doorman.Authenticator(origin)
 		if err != nil {
 			// Unknown service
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
@@ -46,15 +47,15 @@ func VerifyJWTMiddleware(doorman Doorman) gin.HandlerFunc {
 			})
 			return
 		}
-		// No JWT validator configured for this service.
-		if validator == nil {
+		// No authenticator configured for this service.
+		if authenticator == nil {
 			// Do nothing. The principals list will be empty.
 			c.Next()
 			return
 		}
 
 		// Validate authentication.
-		userInfo, err := validator.ValidateRequest(c.Request)
+		userInfo, err := authenticator.ValidateRequest(c.Request)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"message": err.Error(),
@@ -62,7 +63,7 @@ func VerifyJWTMiddleware(doorman Doorman) gin.HandlerFunc {
 			return
 		}
 
-		principals := extractPrincipals(userInfo)
+		principals := buildPrincipals(userInfo)
 
 		c.Set(PrincipalsContextKey, principals)
 
@@ -70,7 +71,7 @@ func VerifyJWTMiddleware(doorman Doorman) gin.HandlerFunc {
 	}
 }
 
-func extractPrincipals(userInfo *authn.UserInfo) Principals {
+func buildPrincipals(userInfo *authn.UserInfo) Principals {
 	// Extract principals from JWT
 	var principals Principals
 	userid := fmt.Sprintf("userid:%s", userInfo.ID)
