@@ -34,6 +34,7 @@ type openIDAuthenticator struct {
 	SignatureAlgorithm jose.SignatureAlgorithm
 	ClaimExtractor     claimExtractor
 	cache              *bigcache.BigCache
+	envTest            bool
 }
 
 // newOpenIDAuthenticator returns a new instance of a generic JWT validator
@@ -50,6 +51,7 @@ func newOpenIDAuthenticator(issuer string) *openIDAuthenticator {
 		SignatureAlgorithm: jose.RS256,
 		ClaimExtractor:     extractor,
 		cache:              cache,
+		envTest:            false,
 	}
 }
 
@@ -149,6 +151,9 @@ func (v *openIDAuthenticator) FetchUserInfo(accessToken string) (*UserInfo, erro
 		data, err = downloadJSON(uri, http.Header{
 			"Authorization": []string{"Bearer " + accessToken},
 		})
+		if err != nil {
+			return nil, errors.Wrap(err, "could not fetch userinfo")
+		}
 		v.cache.Set(cacheKey, data)
 	}
 
@@ -206,7 +211,7 @@ func (v *openIDAuthenticator) FromJWTPayload(idToken string, audience string) (*
 	}
 	expected = expected.WithTime(time.Now())
 	err = jwtClaims.Validate(expected)
-	if err != nil {
+	if err != nil && !v.envTest { // flag for unit tests.
 		return nil, errors.Wrap(err, "invalid JWT claims")
 	}
 
@@ -252,7 +257,7 @@ func downloadJSON(uri string, header http.Header) ([]byte, error) {
 		return nil, fmt.Errorf("%s has not a JSON content-type", uri)
 	}
 	if response.StatusCode != http.StatusOK {
-		return nil, errors.Wrap(err, fmt.Sprintf("server response error (%s)", response.Status))
+		return nil, fmt.Errorf("server response error (%s)", response.Status)
 	}
 	defer response.Body.Close()
 	data, err := ioutil.ReadAll(response.Body)

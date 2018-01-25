@@ -9,7 +9,7 @@ import (
 
 func TestMozillaClaimsExtractor(t *testing.T) {
 	data := []byte(`<"sub"`)
-	_, err := defaultExtractor.Extract(data)
+	_, err := mozillaExtractor.Extract(data)
 	require.NotNil(t, err)
 
 	data = []byte(`{"sub":"mleplatre|Mozilla-LDAP|","email":"m@mozilla.com","https://sso.mozilla.com/claim/groups":["g1", "cloudservices_dev", "irccloud"]}`)
