@@ -35,9 +35,8 @@ func init() {
 // identity provider.
 func NewAuthenticator(idP string) (Authenticator, error) {
 	if !strings.HasPrefix(idP, "https://") {
-		return nil, fmt.Errorf("Identity provider %q not supported or has bad format", idP)
+		return nil, fmt.Errorf("identify provider %q does not use the https:// scheme", idP)
 	}
-
 	// Reuse authenticator instances.
 	v, ok := authenticators[idP]
 	if !ok {

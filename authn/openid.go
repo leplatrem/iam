@@ -136,6 +136,8 @@ func (v *openIDAuthenticator) ValidateRequest(r *http.Request) (*UserInfo, error
 	return userinfo, nil
 }
 
+// FetchUserInfo fetches the user profile infos using the specified access token.
+// The obtained data is cached using the access token as the cache key.
 func (v *openIDAuthenticator) FetchUserInfo(accessToken string) (*UserInfo, error) {
 	cacheKey := "userinfo:" + accessToken
 
@@ -147,12 +149,11 @@ func (v *openIDAuthenticator) FetchUserInfo(accessToken string) (*UserInfo, erro
 			return nil, err
 		}
 		uri := config.UserInfoEndpoint
-		log.Debugf("Fetch user info from %s", uri)
 		data, err = downloadJSON(uri, http.Header{
 			"Authorization": []string{"Bearer " + accessToken},
 		})
 		if err != nil {
-			return nil, errors.Wrap(err, "could not fetch userinfo")
+			return nil, errors.Wrap(err, fmt.Sprintf("could not fetch userinfo from %s", uri))
 		}
 		v.cache.Set(cacheKey, data)
 	}

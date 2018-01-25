@@ -10,7 +10,7 @@ import (
 func TestNewAuthenticator(t *testing.T) {
 	_, err := NewAuthenticator("http://auth0.com")
 	require.NotNil(t, err)
-	assert.Contains(t, err.Error(), "bad format")
+	assert.Contains(t, err.Error(), "https:// scheme")
 
 	authn1, err := NewAuthenticator("https://auth0.com")
 	require.Nil(t, err)

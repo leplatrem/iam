@@ -195,7 +195,7 @@ func TestLoadPoliciesTwice(t *testing.T) {
 			JWTIssuer: "http://perlin-pinpin",
 		},
 	})
-	assert.Contains(t, err.Error(), "\"http://perlin-pinpin\" not supported or has bad format")
+	assert.Contains(t, err.Error(), "\"http://perlin-pinpin\" does not use the https:// scheme")
 	_, ok := doorman.ladons["https://sample.yaml"]
 	assert.True(t, ok)
 }
