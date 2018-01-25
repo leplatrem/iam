@@ -2,36 +2,63 @@ openapi: 2.0.0
 info:
   title: "Mozilla Doorman"
   description: |
-    Doorman is an **authorization micro-service** that allows to checks if an arbitrary subject is allowed to perform an action on a resource, based on a set of rules (policies).
+    *Doorman* is an **authorization micro-service** that allows to checks if an arbitrary subject is allowed to perform an action on a resource, based on a set of rules (policies).
+
+    It takes a set of YAML files like the one below and answers authorization requests by matching the rules:
+
+    ```YAML
+    service: https://api.service.org
+    jwtIssuer: https://auth.mozilla.auth0.com/
+    policies:
+      -
+        id: crud-articles
+        description: Editors can CRUD articles
+        principals:
+          - role:editor
+        actions:
+          - create
+          - read
+          - delete
+          - update
+        resources:
+          - article
+        effect: allow
+    ```
 
     ### Workflow with OpenID
 
-    When the identity provider is configured for a service (*recommended*), a typical workflow is:
+    When a service takes advantage of *Doorman*, a typical workflow is:
 
     1. Users obtain an access token from an Identity Provider (eg. Auth0)
-    1. They use it to call the service API endpoint
-    1. The service posts an authorization request on *Doorman* to check if the user is allowed
-    1. *Doorman* uses the `Origin` request header to select the set of policies
-    1. *Doorman* builds a list of strings (principals) for this user, and matches the policies
+    1. They use it to call a service API endpoint
+    1. The service posts an authorization request on *Doorman* to check if the user is allowed to perform a specific action
+    1. *Doorman* uses the `Origin` request header to select the set of policies to match
+    1. *Doorman* fetches the user infos using the provided access token and builds a list of strings (principals) to characterize this user
+    1. *Doorman* matches the policies and returns true or allowed, along with the list of principals
+    1. Based on the *Doorman* response, the service denies the original request or executes it
 
     *Doorman* will verify that the specified Access token (or ID token) is valid.
 
-    The authorization request *principals* will be built from the user profile information:
+    The authorization request **principals** will be built from the user profile information like this:
 
     * `"sub"`: `userid:{}`
     * `"email"`: `email:{}` (*optional*)
     * `"groups"`: `group:{}, group:{}, ...` (*optional*)
 
-    ### Without OpenID
+
+    ### Without authentication/OpenID
 
     If the identity provider is not configured for a service, no authentication is required and the principals
     are posted in the authorization body.
+
+    It is not especially recommended, but it can give a certain amount of flexibility when authentication is fully managed on the service.
 
     A typical workflow in this case would be:
 
     1. Users call the service API endpoint
     1. The service authenticates the user and builds the list of principals
     1. The service posts an authorization request on *Doorman* containing the list of principals to check if the user is allowed
+
 
     ### API Summary
 
@@ -43,9 +70,9 @@ info:
 
     POST /allowed HTTP/1.1
     Origin: https://api.service.org
+    Authorization: Bearer f2457yu86yikhmbh
 
     {
-      "principals": ["userid:myself"]
       "action" : "delete",
       "resource": "articles/doorman-introduce",
       "context": {
@@ -92,7 +119,7 @@ paths:
       description: |
         Are those `principals` allowed to perform this `action` on this `resource` in this `context`?
 
-        With OpenID enabled, the principals are either read from the Identity Provider user info endpoint or directly from the JSON Web Token payload
+        With authentication enabled, the principals are either read from the Identity Provider user info endpoint or directly from the JSON Web Token payload
         if an ID token is provided.
 
       operationId: "allowed"
@@ -126,7 +153,7 @@ paths:
             properties:
               principals:
                 description: |
-                  **Only without OpenID**
+                  **Only without authentication**
 
                   Arbitrary list of strings (eg. `userid:alice`, `group:editors`).
 
