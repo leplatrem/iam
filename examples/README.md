@@ -8,7 +8,7 @@
 
 A role is a *principal* that usually depends on the relation between a user and a resource. For example, `alice` is the `author` of `articles/42`.
 
-Since it's not the responsability of the *Identity Provider* nor *Doorman* to manage this relation, the service sends the roles of the current user in the authorization request `context`.
+Since it's not the responsibility of the *Identity Provider* nor *Doorman* to manage this relation, the service sends the roles of the current user in the authorization request `context`.
 
 For instance, for a service where objects and users are stored in its database (e.g Django), the service will:
 
